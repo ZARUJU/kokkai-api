@@ -121,7 +121,7 @@ def normalize_marunumbers(text: str) -> str:
     return text
 
 
-def get_qa_shu_a(url: str) -> str:
+def get_qa_shu_q(url: str) -> str:
     # 147以前かどうか判断
     old: bool = url.split("/")[4] == "itdb_shitsumona.nsf"
     html = requests.get(url).text
