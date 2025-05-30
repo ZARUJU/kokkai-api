@@ -1,14 +1,12 @@
+import os, time
+from pathlib import Path
 import requests
-from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-
-from .models import ShuShitsumonData, ShuShitsumonList, ShuShitsumonListData
-
-
-from urllib.parse import urljoin
-import requests
 from bs4 import BeautifulSoup
 from typing import Optional, List
+
+from src.models import ShuShitsumonData, ShuShitsumonListData
+from src.utils import read_from_json
 
 
 def get_url(session: int) -> str:
@@ -150,3 +148,31 @@ def get_qa_shu_q(url: str) -> str:
 
     # 最終的な本文テキストを返す
     return main_div.get_text(separator="\n", strip=True)
+
+
+def save_qa_shu_question_texts(session: int, wait_second: float = 1.0):
+    json_path = f"data/qa_shu/list/{session}.json"
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"JSONファイルが見つかりません: {json_path}")
+
+    data_dict = read_from_json(json_path)
+    data = ShuShitsumonListData(**data_dict)
+
+    for q in data.questions:
+        if not q.question_html_link or not q.number:
+            continue  # 不完全なデータはスキップ
+
+        save_path = Path(f"data/qa_shu/complete/{session}/{q.number}/q.md")
+        if save_path.exists():
+            print(f"[SKIP] 既に存在: {save_path}")
+            continue
+
+        print(f"[WAIT] {wait_second}s before fetching {q.question_html_link}")
+        time.sleep(wait_second)
+
+        print(f"[FETCH] {q.question_html_link}")
+        q_text = get_qa_shu_q(q.question_html_link)
+
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(save_path, "w", encoding="utf-8") as f:
+            f.write(q_text)
