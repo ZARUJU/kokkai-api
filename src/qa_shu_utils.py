@@ -81,3 +81,79 @@ def get_qa_shu_list_data(session: int) -> ShuShitsumonListData:
         source=url, session=session, list=list_obj.shitsumon_list
     )
     return data
+
+
+import requests
+from bs4 import BeautifulSoup
+
+
+def extract_text_by_selector(
+    html: str,
+    id: str = None,
+    class_name: str = None,
+    separator: str = "",
+    strip: bool = True,
+) -> str | None:
+    soup = BeautifulSoup(html, "html.parser")
+    if id:
+        element = soup.find(id=id)
+    elif class_name:
+        element = soup.find(class_=class_name)
+    else:
+        return None
+    return element.get_text(separator=separator, strip=strip) if element else None
+
+
+def normalize_marunumbers(text: str) -> str:
+    replace_map = {
+        "①": "(1)",
+        "②": "(2)",
+        "③": "(3)",
+        "④": "(4)",
+        "⑤": "(5)",
+        "⑥": "(6)",
+        "⑦": "(7)",
+        "⑧": "(8)",
+        "⑨": "(9)",
+        "⑩": "(10)",
+        "⑪": "(11)",
+        "⑫": "(12)",
+        "⑬": "(13)",
+        "⑭": "(14)",
+        "⑮": "(15)",
+        # 必要に応じて拡張
+    }
+    for k, v in replace_map.items():
+        text = text.replace(k, v)
+    return text
+
+
+def get_qa_shu_a(url: str) -> str:
+    # 147以前かどうか判断
+    old: bool = url.split("/")[4] == "itdb_shitsumona.nsf"
+    html = requests.get(url).text
+    soup = BeautifulSoup(html, "html.parser")
+
+    main_div = soup.find("div", id="mainlayout")
+    if not main_div:
+        return ""
+
+    # 共通：パンくず、タイトル部分は削除
+    for element_id in ["breadcrumb", "TopContents"]:
+        target = main_div.find(id=element_id)
+        if target:
+            target.decompose()
+
+    if old:
+        # 古い形式: gh31divr の1つ目と3つ目を削除
+        divs = main_div.find_all("div", class_="gh31divr")
+    else:
+        # 新しい形式: gh21divr の1つ目と3つ目を削除
+        divs = main_div.find_all("div", class_="gh21divr")
+
+    for i in [0, 2]:
+        if i < len(divs):
+            divs[i].decompose()
+
+    # 最終的な本文テキストを返す
+    return main_div.get_text(separator="\n", strip=True)
