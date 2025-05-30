@@ -19,9 +19,9 @@ for session in range(1, LATEST_SESSION + 1):
         write_to_json(data.model_dump(), path)
 
     # 質問主意書の取得と保存
-    save_qa_shu_question_texts(session, wait_second=random.uniform(2.0, 5.0))
+    save_qa_shu_question_texts(session, 3.0)
 
 # 最新の会期は強制実行
 data = get_qa_shu_list_data(LATEST_SESSION)
 write_to_json(data.model_dump(), f"data/qa_shu/list/{LATEST_SESSION}.json")
-save_qa_shu_question_texts(LATEST_SESSION, wait_second=random.uniform(2.0, 5.0))
+save_qa_shu_question_texts(LATEST_SESSION, 3.0)
