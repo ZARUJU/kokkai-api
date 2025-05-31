@@ -34,22 +34,27 @@ ERA_MAPPING = {
 
 def convert_japanese_date(japanese_date: Optional[str]) -> Optional[str]:
     """
-    「令和 7年 1月24日」などの和暦日付を「yyyy-mm-dd」形式に変換（明治以降対応）
+    「令和7年1月24日」や「令和元年1月24日」などの和暦日付を
+    「yyyy-mm-dd」形式に変換（明治以降対応）
     """
     if not japanese_date:
         return None
 
-    # 正規表現で元号と年・月・日を抽出
-    pattern = r"(明治|大正|昭和|平成|令和)\s*(\d+)年\s*(\d+)月\s*(\d+)日"
+    # 「元年」にも対応する正規表現
+    pattern = r"(明治|大正|昭和|平成|令和)\s*(\d+|元)年\s*(\d+)月\s*(\d+)日"
     match = re.match(pattern, japanese_date)
     if not match:
         raise ValueError(f"不正な日付形式: {japanese_date}")
 
     era, year_str, month_str, day_str = match.groups()
-    year, month, day = int(year_str), int(month_str), int(day_str)
+
+    # 「元」を数値に変換
+    year = 1 if year_str == "元" else int(year_str)
+    month = int(month_str)
+    day = int(day_str)
 
     if era not in ERA_MAPPING:
         raise ValueError(f"未対応の元号: {era}")
 
-    western_year = ERA_MAPPING[era] + year - 1  # 元年 = 開始年
+    western_year = ERA_MAPPING[era] + year - 1  # 元年は +0
     return date(western_year, month, day).isoformat()
