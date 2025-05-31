@@ -70,7 +70,9 @@ clean_texts(LATEST_SESSION)
 
 # ステータス保存（質問ごと）
 for q in data.questions:
-    save_status_if_needed(LATEST_SESSION, q, 1.0)
+    save_status_if_needed(
+        LATEST_SESSION, q, wait_second=1.0, force_if_not_received=True
+    )
 
 # --- 過去セッション（未取得のみ） ---
 for session in range(LATEST_SESSION - 1, 1, -1):

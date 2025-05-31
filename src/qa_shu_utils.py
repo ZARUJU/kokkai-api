@@ -167,7 +167,7 @@ def save_qa_shu_question_texts(session: int, wait_second: float = 1.0):
             print(f"[SKIP] 既に存在: {save_path}")
             continue
 
-        print(f"[WAIT] {wait_second}s before fetching {q.question_html_link}")
+        print(f"[WAIT] {wait_second}秒後に取得します:  {q.question_html_link}")
         time.sleep(wait_second)
 
         print(f"[FETCH] {q.question_html_link}")
@@ -226,7 +226,7 @@ def save_qa_shu_answer_texts(session: int, wait_second: float = 1.0):
             print(f"[SKIP] 既に存在: {save_path}")
             continue
 
-        print(f"[WAIT] {wait_second}s before fetching {q.question_html_link}")
+        print(f"[WAIT] {wait_second}秒後に取得します: {q.question_html_link}")
         time.sleep(wait_second)
 
         print(f"[FETCH] {q.question_html_link}")
@@ -326,22 +326,30 @@ def extract_submitter_count(text: str) -> int:
     return 1 + additional
 
 
-def save_status_if_needed(session: int, question_obj, wait_second: float = 1.0):
+def save_status_if_needed(
+    session: int,
+    question_obj,
+    wait_second: float = 1.0,
+    force_if_not_received: bool = False,
+):
     status_path = Path(
         f"data/qa_shu/complete/{session}/status/{question_obj.number}.json"
     )
-    if status_path.exists():
-        print(f"[SKIP] 既に存在: {status_path}")
-        return
 
-    print(f"[WAIT] {wait_second}s before fetching {question_obj.progress_info_link}")
+    # すでに存在し、かつ「答弁受理」の場合はスキップ
+    if status_path.exists():
+        if question_obj.progress_status == "答弁受理":
+            print(f"[SKIP] 答弁受理のためスキップ: {status_path}")
+            return
+        if not force_if_not_received:
+            print(f"[SKIP] 既に存在: {status_path}")
+            return
+
+    print(f"[待機] {wait_second}秒後に取得します: {question_obj.progress_info_link}")
     time.sleep(wait_second)
 
-    progress_link = question_obj.progress_info_link
-    print(f"[FETCH] {progress_link}")
-    html = requests.get(progress_link).text
-
-    print(f"[PARSE] 経過状況テーブル解析中...")
+    print(f"[FETCH] {question_obj.progress_info_link}")
+    html = requests.get(question_obj.progress_info_link).text
     status_data = ShuShitsumonStatusBefore(**extract_table_data_from_html(html))
 
     data = {
