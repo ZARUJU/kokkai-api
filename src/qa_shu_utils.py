@@ -326,17 +326,24 @@ def extract_submitter_count(text: str) -> int:
     return 1 + additional
 
 
-# 経過状況を取得して保存する
-def save_status_if_needed(session: int, question_obj):
+def save_status_if_needed(session: int, question_obj, wait_second: float = 1.0):
     status_path = Path(
         f"data/qa_shu/complete/{session}/status/{question_obj.number}.json"
     )
     if status_path.exists():
+        print(f"[SKIP] 既に存在: {status_path}")
         return
 
+    print(f"[WAIT] {wait_second}s before fetching {question_obj.progress_info_link}")
+    time.sleep(wait_second)
+
     progress_link = question_obj.progress_info_link
+    print(f"[FETCH] {progress_link}")
     html = requests.get(progress_link).text
+
+    print(f"[PARSE] 経過状況テーブル解析中...")
     status_data = ShuShitsumonStatusBefore(**extract_table_data_from_html(html))
+
     data = {
         "session_number": int(status_data.session_number),
         "session_type": status_data.session_type,
@@ -360,5 +367,7 @@ def save_status_if_needed(session: int, question_obj):
         ),
         "status": status_data.status,
     }
+
+    print(f"[SAVE] {status_path}")
     status_path.parent.mkdir(parents=True, exist_ok=True)
     write_to_json(data, path=str(status_path))

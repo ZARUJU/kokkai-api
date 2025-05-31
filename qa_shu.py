@@ -64,13 +64,13 @@ def clean_texts(session: int):
 # --- 最新セッション（強制更新） ---
 data = get_qa_shu_list_data(LATEST_SESSION)
 write_to_json(data.model_dump(), f"data/qa_shu/list/{LATEST_SESSION}.json")
-save_qa_shu_question_texts(LATEST_SESSION, 0.0)
-save_qa_shu_answer_texts(LATEST_SESSION, 0.0)
+save_qa_shu_question_texts(LATEST_SESSION, 1.0)
+save_qa_shu_answer_texts(LATEST_SESSION, 1.0)
 clean_texts(LATEST_SESSION)
 
 # ステータス保存（質問ごと）
 for q in data.questions:
-    save_status_if_needed(LATEST_SESSION, q)
+    save_status_if_needed(LATEST_SESSION, q, 1.0)
 
 # --- 過去セッション（未取得のみ） ---
 for session in range(LATEST_SESSION - 1, 1, -1):
@@ -85,4 +85,4 @@ for session in range(LATEST_SESSION - 1, 1, -1):
 
     list_data = ShuShitsumonListData(**read_from_json(path))
     for q in list_data.questions:
-        save_status_if_needed(session, q)
+        save_status_if_needed(session, q, WAIT_SECOND)
