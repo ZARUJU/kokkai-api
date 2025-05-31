@@ -176,3 +176,62 @@ def save_qa_shu_question_texts(session: int, wait_second: float = 1.0):
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "w", encoding="utf-8") as f:
             f.write(q_text)
+
+
+def get_qa_shu_a(url: str) -> str:
+    # 147以前かどうか判断
+    old: bool = url.split("/")[4] == "itdb_shitsumona.nsf"
+    html = requests.get(url).text
+    soup = BeautifulSoup(html, "html.parser")
+
+    main_div = soup.find("div", id="mainlayout")
+    if not main_div:
+        return ""
+
+    # 共通：パンくず、タイトル部分は削除
+    for element_id in ["breadcrumb", "TopContents"]:
+        target = main_div.find(id=element_id)
+        if target:
+            target.decompose()
+
+    if old:
+        # 古い形式: gh31divr の1つ目と3つ目を削除
+        divs = main_div.find_all("div", class_="gh32divr")
+    else:
+        # 新しい形式: gh21divr の1つ目と3つ目を削除
+        divs = main_div.find_all("div", class_="gh22divr")
+
+    for i in [0, 2]:
+        if i < len(divs):
+            divs[i].decompose()
+
+    # 最終的な本文テキストを返す
+    return main_div.get_text(separator="\n", strip=True)
+
+
+def save_qa_shu_answer_texts(session: int, wait_second: float = 1.0):
+    json_path = f"data/qa_shu/list/{session}.json"
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"JSONファイルが見つかりません: {json_path}")
+
+    data_dict = read_from_json(json_path)
+    data = ShuShitsumonListData(**data_dict)
+
+    for q in data.questions:
+        if not q.question_html_link or not q.number:
+            continue  # 不完全なデータはスキップ
+
+        save_path = Path(f"data/qa_shu/complete/{session}/{q.number}/a.md")
+        if save_path.exists():
+            print(f"[SKIP] 既に存在: {save_path}")
+            continue
+
+        print(f"[WAIT] {wait_second}s before fetching {q.question_html_link}")
+        time.sleep(wait_second)
+
+        print(f"[FETCH] {q.question_html_link}")
+        a_text = get_qa_shu_a(q.question_html_link)
+
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(save_path, "w", encoding="utf-8") as f:
+            f.write(a_text)
