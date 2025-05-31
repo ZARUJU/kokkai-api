@@ -75,6 +75,19 @@ remove_text_from_md_files(
 答弁本文(PDF)へ
 """,
 )
+remove_text_from_md_files(
+    directory=f"data/qa_shu/complete/{LATEST_SESSION}/a",
+    target_text="""経過へ
+|
+質問本文(PDF)へ
+""",
+)
+remove_text_from_md_files(
+    directory=f"data/qa_shu/complete/{LATEST_SESSION}/a",
+    target_text="""経過へ
+|
+質問本文(PDF)へ""",
+)
 
 # 最新会期までの質問主意書を取得する（未取得のみ）
 # 最新会期は取得済みでも取得する
@@ -104,4 +117,17 @@ for session in range(LATEST_SESSION - 1, 1, -1):
 |
 答弁本文(PDF)へ
 """,
+    )
+    remove_text_from_md_files(
+        directory=f"data/qa_shu/complete/{session}/a",
+        target_text="""経過へ
+|
+質問本文(PDF)へ
+""",
+    )
+    remove_text_from_md_files(
+        directory=f"data/qa_shu/complete/{session}/a",
+        target_text="""経過へ
+|
+質問本文(PDF)へ""",
     )
