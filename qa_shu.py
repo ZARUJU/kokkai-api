@@ -1,5 +1,3 @@
-import random
-
 from src.qa_shu_utils import (
     get_qa_shu_list_data,
     save_qa_shu_question_texts,
@@ -9,7 +7,7 @@ from src.utils import write_to_json, file_exists
 
 
 LATEST_SESSION = 217
-WAIT_SECOND = 5.0
+WAIT_SECOND = 3.0
 
 # 最新の会期は強制実行
 data = get_qa_shu_list_data(LATEST_SESSION)
