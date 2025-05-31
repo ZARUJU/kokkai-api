@@ -20,3 +20,38 @@ class ShuShitsumonListData(BaseModel):
     source: str
     session: int
     questions: List[ShuShitsumonData]
+
+
+class ShuShitsumonStatusBefore(BaseModel):
+    session_number: Optional[int]
+    session_type: Optional[str]
+    question_number: Optional[int]
+    question_subject: Optional[str]
+    submitter_name: Optional[str]
+    party_name: Optional[str]
+    submitted_date: Optional[str]
+    cabinet_transfer_date: Optional[str]
+    reply_delay_notice_date: Optional[str]
+    reply_delay_deadline: Optional[str]
+    reply_received_date: Optional[str]
+    withdrawal_date: Optional[str]
+    withdrawal_notice_date: Optional[str]
+    status: Optional[str]
+
+
+class ShuShitsumonStatus(BaseModel):
+    session_number: Optional[int]
+    session_type: Optional[str]
+    question_number: Optional[int]
+    question_subject: Optional[str]
+    submitter_name: Optional[str]
+    submitter_count: Optional[int]
+    party_name: Optional[str]
+    submitted_date: Optional[str]
+    cabinet_transfer_date: Optional[str]
+    reply_delay_notice_date: Optional[str]
+    reply_delay_deadline: Optional[str]
+    reply_received_date: Optional[str]
+    withdrawal_date: Optional[str]
+    withdrawal_notice_date: Optional[str]
+    status: Optional[str]

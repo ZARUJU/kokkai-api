@@ -1,12 +1,12 @@
-import os, time
+import os, time, re
 from pathlib import Path
 import requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from typing import Optional, List
 
-from src.models import ShuShitsumonData, ShuShitsumonListData
-from src.utils import read_from_json
+from src.models import ShuShitsumonData, ShuShitsumonListData, ShuShitsumonStatusBefore
+from src.utils import read_from_json, write_to_json, convert_japanese_date
 
 
 def get_url(session: int) -> str:
@@ -235,3 +235,130 @@ def save_qa_shu_answer_texts(session: int, wait_second: float = 1.0):
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "w", encoding="utf-8") as f:
             f.write(a_text)
+
+
+# 日本語項目 → 英語keyのマッピング定義
+COLUMN_MAP = {
+    "国会回次": "session_number",
+    "国会区別": "session_type",
+    "質問番号": "question_number",
+    "質問件名": "question_subject",
+    "提出者名": "submitter_name",
+    "会派名": "party_name",
+    "質問主意書提出年月日": "submitted_date",
+    "内閣転送年月日": "cabinet_transfer_date",
+    "答弁延期通知受領年月日": "reply_delay_notice_date",
+    "答弁延期期限年月日": "reply_delay_deadline",
+    "答弁書受領年月日": "reply_received_date",
+    "撤回年月日": "withdrawal_date",
+    "撤回通知年月日": "withdrawal_notice_date",
+    "経過状況": "status",
+}
+
+
+# 経過状況ページのデータを構造化
+def extract_table_data_from_html(html: str) -> dict:
+    soup = BeautifulSoup(html, "html.parser")
+    main_div = soup.find("div", id="mainlayout")
+    if not main_div:
+        raise ValueError("id='mainlayout' のDIVが見つかりません")
+
+    table = main_div.find("table")
+    if not table:
+        raise ValueError("mainlayout内に<table>が見つかりません")
+
+    data = {}
+    rows = table.find_all("tr")[1:]  # ヘッダー行を除く
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) != 2:
+            continue
+        key_jp = cols[0].get_text(strip=True)
+        val = cols[1].get_text(strip=True)
+        key_en = COLUMN_MAP.get(key_jp)
+        if key_en:
+            data[key_en] = val or None
+
+    return data
+
+
+def extract_submitter_name(text: str) -> str:
+    """
+    提出者名から主提出者の名前を抽出（敬称「君」除去）
+    例: "原口　一博君外二名" → "原口　一博"
+    """
+    match = re.match(r"^(.*?)君", text)
+    return match.group(1) if match else text
+
+
+KANJI_NUM_MAP = {
+    "〇": 0,
+    "零": 0,
+    "一": 1,
+    "二": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "十": 10,
+}
+
+
+def kanji_to_int(kanji: str) -> int:
+    """
+    非対応の複雑な漢数字（例：十一）には対応していません。
+    単漢数字のみ（例：「二」→ 2）に対応
+    """
+    return KANJI_NUM_MAP.get(kanji.strip(), 0)
+
+
+def extract_submitter_count(text: str) -> int:
+    """
+    提出者数を抽出（主提出者 + 外〇名）
+    例: "原口　一博君外二名" → 3
+         "田中　太郎君" → 1
+    """
+    match = re.search(r"外([一二三四五六七八九十〇零])名", text)
+    additional = kanji_to_int(match.group(1)) if match else 0
+    return 1 + additional
+
+
+# 経過状況を取得して保存する
+def save_status_if_needed(session: int, question_obj):
+    status_path = Path(
+        f"data/qa_shu/complete/{session}/status/{question_obj.number}.json"
+    )
+    if status_path.exists():
+        return
+
+    progress_link = question_obj.progress_info_link
+    html = requests.get(progress_link).text
+    status_data = ShuShitsumonStatusBefore(**extract_table_data_from_html(html))
+    data = {
+        "session_number": int(status_data.session_number),
+        "session_type": status_data.session_type,
+        "question_number": int(status_data.question_number),
+        "question_subject": status_data.question_subject,
+        "submitter_name": extract_submitter_name(status_data.submitter_name),
+        "submitter_count": extract_submitter_count(status_data.submitter_name),
+        "party_name": status_data.party_name,
+        "submitted_date": convert_japanese_date(status_data.submitted_date),
+        "cabinet_transfer_date": convert_japanese_date(
+            status_data.cabinet_transfer_date
+        ),
+        "reply_delay_notice_date": convert_japanese_date(
+            status_data.reply_delay_notice_date
+        ),
+        "reply_delay_deadline": convert_japanese_date(status_data.reply_delay_deadline),
+        "reply_received_date": convert_japanese_date(status_data.reply_received_date),
+        "withdrawal_date": convert_japanese_date(status_data.withdrawal_date),
+        "withdrawal_notice_date": convert_japanese_date(
+            status_data.withdrawal_notice_date
+        ),
+        "status": status_data.status,
+    }
+    status_path.parent.mkdir(parents=True, exist_ok=True)
+    write_to_json(data, path=str(status_path))
