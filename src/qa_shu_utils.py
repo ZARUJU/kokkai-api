@@ -162,7 +162,7 @@ def save_qa_shu_question_texts(session: int, wait_second: float = 1.0):
         if not q.question_html_link or not q.number:
             continue  # 不完全なデータはスキップ
 
-        save_path = Path(f"data/qa_shu/complete/{session}/{q.number}/q.md")
+        save_path = Path(f"data/qa_shu/complete/{session}/q/{q.number}.md")
         if save_path.exists():
             print(f"[SKIP] 既に存在: {save_path}")
             continue
@@ -221,7 +221,7 @@ def save_qa_shu_answer_texts(session: int, wait_second: float = 1.0):
         if not q.question_html_link or not q.number:
             continue  # 不完全なデータはスキップ
 
-        save_path = Path(f"data/qa_shu/complete/{session}/{q.number}/a.md")
+        save_path = Path(f"data/qa_shu/complete/{session}/a/{q.number}.md")
         if save_path.exists():
             print(f"[SKIP] 既に存在: {save_path}")
             continue
