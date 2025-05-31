@@ -1,5 +1,4 @@
 from pathlib import Path
-import requests
 
 from src.qa_shu_utils import (
     get_qa_shu_list_data,
@@ -14,7 +13,18 @@ from src.utils import (
 )
 from src.models import ShuShitsumonListData
 
-LATEST_SESSION = 217
+session_list = read_from_json("data/session.json")
+
+# 方法A: sorted を使って昇順にソートし、最後の要素を取り出す
+valid_sessions = [s for s in session_list if s.get("session_number") is not None]
+# session_number をキーにソート
+valid_sessions.sort(key=lambda x: x["session_number"])
+
+# 昇順ソート後の末尾要素が最新
+latest_session = valid_sessions[-1]
+latest_number = latest_session["session_number"]
+
+LATEST_SESSION = latest_number
 WAIT_SECOND = 3.0
 
 
