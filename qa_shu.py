@@ -95,7 +95,7 @@ for session in range(LATEST_SESSION - 1, 1, -1):
         "ＨＴＭＬファイルについてはしばらくお待ちください。ＰＤＦファイルをご覧ください。",
     )
     remove_text_from_md_files(
-        directory=f"data/qa_shu/complete/{LATEST_SESSION}/a",
+        directory=f"data/qa_shu/complete/{session}/a",
         target_text="""経過へ
 |
 質問本文(PDF)へ
