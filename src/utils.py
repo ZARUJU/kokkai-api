@@ -58,3 +58,32 @@ def convert_japanese_date(japanese_date: Optional[str]) -> Optional[str]:
 
     western_year = ERA_MAPPING[era] + year - 1  # 元年は +0
     return date(western_year, month, day).isoformat()
+
+
+def delete_md_files_with_message(directory: str, target_phrase: str):
+    dir_path = Path(directory)
+    if not dir_path.is_dir():
+        return
+    for md_file in dir_path.glob("*.md"):
+        try:
+            content = md_file.read_text(encoding="utf-8")
+            if target_phrase in content:
+                md_file.unlink()
+                print(f"[削除] {md_file}")
+        except Exception as e:
+            print(f"[エラー] {md_file}: {e}")
+
+
+def remove_text_from_md_files(directory: str, target_text: str):
+    dir_path = Path(directory)
+    if not dir_path.is_dir():
+        return
+    for md_file in dir_path.glob("*.md"):
+        try:
+            content = md_file.read_text(encoding="utf-8")
+            if target_text in content:
+                new_content = content.replace(target_text, "")
+                md_file.write_text(new_content, encoding="utf-8")
+                print(f"[修正] {md_file}")
+        except Exception as e:
+            print(f"[エラー] {md_file}: {e}")
