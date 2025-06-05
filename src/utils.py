@@ -87,3 +87,17 @@ def remove_text_from_md_files(directory: str, target_text: str):
                 print(f"[修正] {md_file}")
         except Exception as e:
             print(f"[エラー] {md_file}: {e}")
+
+
+def clean_texts(session: int):
+    base_dir = f"data/qa_shu/complete/{session}/a"
+    delete_md_files_with_message(
+        base_dir,
+        "ＨＴＭＬファイルについてはしばらくお待ちください。ＰＤＦファイルをご覧ください。",
+    )
+    remove_text_from_md_files(
+        base_dir,
+        """経過へ\n|\n質問本文(PDF)へ\n|\n答弁本文(HTML)へ\n|\n答弁本文(PDF)へ\n""",
+    )
+    remove_text_from_md_files(base_dir, """経過へ\n|\n質問本文(PDF)へ\n""")
+    remove_text_from_md_files(base_dir, """経過へ\n|\n質問本文(PDF)へ""")

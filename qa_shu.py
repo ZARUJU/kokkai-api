@@ -6,13 +6,7 @@ from src.qa_shu_utils import (
     save_qa_shu_answer_texts,
     save_status_if_needed,
 )
-from src.utils import (
-    write_to_json,
-    read_from_json,
-    file_exists,
-    delete_md_files_with_message,
-    remove_text_from_md_files,
-)
+from src.utils import write_to_json, read_from_json, file_exists, clean_texts
 from src.models import ShuShitsumonListData
 
 session_list = read_from_json("data/session.json")
@@ -28,20 +22,6 @@ latest_number = latest_session["session_number"]
 
 LATEST_SESSION = latest_number
 WAIT_SECOND = 3.0
-
-
-def clean_texts(session: int):
-    base_dir = f"data/qa_shu/complete/{session}/a"
-    delete_md_files_with_message(
-        base_dir,
-        "ＨＴＭＬファイルについてはしばらくお待ちください。ＰＤＦファイルをご覧ください。",
-    )
-    remove_text_from_md_files(
-        base_dir,
-        """経過へ\n|\n質問本文(PDF)へ\n|\n答弁本文(HTML)へ\n|\n答弁本文(PDF)へ\n""",
-    )
-    remove_text_from_md_files(base_dir, """経過へ\n|\n質問本文(PDF)へ\n""")
-    remove_text_from_md_files(base_dir, """経過へ\n|\n質問本文(PDF)へ""")
 
 
 # --- 最新セッション（強制更新） ---
