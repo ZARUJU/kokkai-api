@@ -11,6 +11,7 @@ from src.utils import (
     read_from_json,
     delete_md_files_with_message,
     remove_text_from_md_files,
+    file_exists,
 )
 from src.models import ShuShitsumonListData
 
@@ -55,30 +56,30 @@ LATEST_SESSION = latest_number
 WAIT_SECOND = 3.0
 
 
-# # --- 最新セッション（強制更新） ---
-# data = get_qa_shu_list_data(LATEST_SESSION)
-# write_to_json(data.model_dump(), f"data/qa_shu/list/{LATEST_SESSION}.json")
-# save_qa_shu_question_texts(LATEST_SESSION, 0.0)
-# save_qa_shu_answer_texts(LATEST_SESSION, 0.0)
+# --- 最新セッション（強制更新） ---
+data = get_qa_shu_list_data(LATEST_SESSION)
+write_to_json(data.model_dump(), f"data/qa_shu/list/{LATEST_SESSION}.json")
+save_qa_shu_question_texts(LATEST_SESSION, 0.0)
+save_qa_shu_answer_texts(LATEST_SESSION, 0.0)
 clean_texts(LATEST_SESSION)
 
-# # ステータス保存（質問ごと）
-# for q in data.questions:
-#     save_status_if_needed(
-#         LATEST_SESSION, q, wait_second=0.0, force_if_not_received=True
-#     )
+# ステータス保存（質問ごと）
+for q in data.questions:
+    save_status_if_needed(
+        LATEST_SESSION, q, wait_second=0.0, force_if_not_received=True
+    )
 
-# # --- 過去セッション（未取得のみ） ---
-# for session in range(LATEST_SESSION - 1, 1, -1):
-#     path = f"data/qa_shu/list/{session}.json"
-#     if not file_exists(path):
-#         data = get_qa_shu_list_data(session)
-#         write_to_json(data.model_dump(), path)
+# --- 過去セッション（未取得のみ） ---
+for session in range(LATEST_SESSION - 1, 1, -1):
+    path = f"data/qa_shu/list/{session}.json"
+    if not file_exists(path):
+        data = get_qa_shu_list_data(session)
+        write_to_json(data.model_dump(), path)
 
-#     save_qa_shu_question_texts(session, WAIT_SECOND)
-#     save_qa_shu_answer_texts(session, WAIT_SECOND)
-#     clean_texts(session)
+    save_qa_shu_question_texts(session, WAIT_SECOND)
+    save_qa_shu_answer_texts(session, WAIT_SECOND)
+    clean_texts(session)
 
-#     list_data = ShuShitsumonListData(**read_from_json(path))
-#     for q in list_data.questions:
-#         save_status_if_needed(session, q, WAIT_SECOND)
+    list_data = ShuShitsumonListData(**read_from_json(path))
+    for q in list_data.questions:
+        save_status_if_needed(session, q, WAIT_SECOND)
