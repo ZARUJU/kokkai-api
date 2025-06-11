@@ -13,13 +13,9 @@ class ShuShitsumonData(BaseModel):
 
 
 class ShuShitsumonList(BaseModel):
-    shitsumon_list: List[ShuShitsumonData]
-
-
-class ShuShitsumonListData(BaseModel):
-    source: str
     session: int
-    questions: List[ShuShitsumonData]
+    source: str
+    items: List[ShuShitsumonData]
 
 
 class ShuShitsumonStatusBefore(BaseModel):
