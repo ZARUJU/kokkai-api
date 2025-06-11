@@ -136,7 +136,17 @@ def save_answer_texts(session: int, wait: float = 1.0):
 
 def extract_table_data_from_html(html: str) -> Dict[str, Optional[str]]:
     """
-    改良版: 同じ行に複数ペアがあっても拾えるようにペア単位でループします。
+    経過状況ページのHTMLから以下を抽出し、statusを判別して返す。
+
+    - session_number: セッション番号（整数）
+    - session_type: セッション種別（常会 or 臨時会など）
+    - question_number: 質問番号（整数）
+    - question_subject: 件名
+    - submitter_name: 提出者名（「君」を除去）
+    - submitted_date: 提出日（和暦文字列）
+    - cabinet_transfer_date: 転送日（和暦文字列）
+    - reply_received_date: 答弁書受領日（和暦文字列）
+    - status: 「答弁受理」／「内閣転送」／「質問受理」
     """
     soup = BeautifulSoup(html, "html.parser")
     data: Dict[str, Optional[str]] = {
