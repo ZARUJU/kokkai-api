@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field  # ← Fieldをインポート
 
 
-class SangIinShitsumonData(BaseModel):
+class SangiinShitsumonData(BaseModel):
     number: Optional[int] = Field(None)
     question_subject: Optional[str] = Field(None)
     submitter_name: Optional[str] = Field(None)
@@ -18,10 +18,10 @@ class SangIinShitsumonData(BaseModel):
     answer_pdf_link: Optional[str] = Field(None)
 
 
-class SangIinShitsumonList(BaseModel):
+class SangiinShitsumonList(BaseModel):
     session: int
     source: str
-    items: List[SangIinShitsumonData]
+    items: List[SangiinShitsumonData]
 
 
 def get_session_url(session: int) -> str:
@@ -43,12 +43,12 @@ def resolve_url(page_url: str, href: Optional[str]) -> Optional[str]:
     return urljoin(base, href)
 
 
-def get_qa_sangiin_list(session: int) -> SangIinShitsumonList:
+def get_qa_sangiin_list(session: int) -> SangiinShitsumonList:
     url = get_session_url(session)
     soup = fetch_soup(url)
     table = soup.find("table", class_="list_c")
 
-    items: List[SangIinShitsumonData] = []
+    items: List[SangiinShitsumonData] = []
     if table:
         trs = table.find_all("tr")
         for i in range(0, len(trs), 3):
@@ -82,7 +82,7 @@ def get_qa_sangiin_list(session: int) -> SangIinShitsumonList:
             a_pdf = pdf_row.find("a", string="答弁本文（PDF）")
 
             items.append(
-                SangIinShitsumonData(
+                SangiinShitsumonData(
                     number=num,
                     question_subject=subject,
                     submitter_name=submitter,
@@ -99,12 +99,12 @@ def get_qa_sangiin_list(session: int) -> SangIinShitsumonList:
                 )
             )
 
-    return SangIinShitsumonList(session=session, source=url, items=items)
+    return SangiinShitsumonList(session=session, source=url, items=items)
 
 
 def _save_texts(
     session: int,
-    items: List[SangIinShitsumonData],
+    items: List[SangiinShitsumonData],
     attr: str,
     subdir: str,
     wait: float = 1.0,
