@@ -363,7 +363,7 @@ def extract_table_data_from_html(html: str) -> dict:
     return data
 
 
-def extract_submitter_name(text: str) -> str:
+def extract_submitter_name(text: Optional[str]) -> Optional[str]:
     """
     提出者文字列から主提出者名を抽出し、「君」以降を除去する。
 
@@ -376,6 +376,8 @@ def extract_submitter_name(text: str) -> str:
     Returns:
         str: 主提出者の氏名。
     """
+    if not text:
+        return None
     return re.match(r"^(.*?)君", text).group(1) if "君" in text else text
 
 
@@ -395,7 +397,7 @@ KANJI_NUM_MAP = {
 }
 
 
-def extract_submitter_count(text: str) -> int:
+def extract_submitter_count(text: Optional[str]) -> int:
     """
     提出者数を算出（主提出者 + 外〇名）。
 
@@ -409,6 +411,8 @@ def extract_submitter_count(text: str) -> int:
     Returns:
         int: 提出者人数。
     """
+    if not text:
+        return 0
     m = re.search(r"外([零〇一二三四五六七八九十])名", text)
     extra = KANJI_NUM_MAP.get(m.group(1), 0) if m else 0
     return 1 + extra
