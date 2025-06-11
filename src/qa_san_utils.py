@@ -5,24 +5,7 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
-from pydantic import BaseModel, Field  # ← Fieldをインポート
-
-
-class SangiinShitsumonData(BaseModel):
-    number: Optional[int] = Field(None)
-    question_subject: Optional[str] = Field(None)
-    submitter_name: Optional[str] = Field(None)
-    question_html_link: Optional[str] = Field(None)
-    question_pdf_link: Optional[str] = Field(None)
-    answer_html_link: Optional[str] = Field(None)
-    answer_pdf_link: Optional[str] = Field(None)
-
-
-class SangiinShitsumonList(BaseModel):
-    session: int
-    source: str
-    items: List[SangiinShitsumonData]
-
+from src.models import SangiinShitsumonData, SangiinShitsumonList
 
 def get_session_url(session: int) -> str:
     return (
