@@ -102,13 +102,15 @@ def main():
     )
     raw_shutvs = load_json_models(SHUGIINTV_DIR, ShugiinTV)
 
-    print(f"Loaded {len(raw_meetings)} meetings from {MINUTES_DIR}")
+    raw_meetings_len = len(raw_meetings)
+    print(f"Loaded {raw_meetings_len} meetings from {MINUTES_DIR}")
     print(f"Loaded {len(raw_shutvs)} records from {SHUGIINTV_DIR}")
 
     meetings, shutvs = to_simple_dicts(raw_meetings, raw_shutvs)
     merged_sorted = merge_and_sort(meetings, shutvs)
 
     pprint.pprint(merged_sorted)
+    print(f"{len(merged_sorted)} / {raw_meetings_len}")
     write_to_json(merged_sorted, OUTPUT_PATH)
     print(f"Written merged data to {OUTPUT_PATH}")
 
