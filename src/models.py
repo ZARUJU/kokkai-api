@@ -57,6 +57,7 @@ class SangiinShitsumonData(BaseModel):
     number: Optional[int] = Field(None)
     question_subject: Optional[str] = Field(None)
     submitter_name: Optional[str] = Field(None)
+    progress_info_link: Optional[str] = Field(None)
     question_html_link: Optional[str] = Field(None)
     question_pdf_link: Optional[str] = Field(None)
     answer_html_link: Optional[str] = Field(None)

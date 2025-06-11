@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 from src.models import SangiinShitsumonData, SangiinShitsumonList
 
+
 def get_session_url(session: int) -> str:
     return (
         f"https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/{session}/syuisyo.htm"
@@ -53,6 +54,7 @@ def get_qa_sangiin_list(session: int) -> SangiinShitsumonList:
             # 件名
             a_subj = header.find("a", class_="Graylink")
             subject = a_subj.get_text(strip=True) if a_subj else None
+            progress_info_link = resolve_url(url, a_subj["href"]) if a_subj else None
 
             # 提出者
             td_sub = html_row.find("td", class_="ta_l")
@@ -69,6 +71,7 @@ def get_qa_sangiin_list(session: int) -> SangiinShitsumonList:
                     number=num,
                     question_subject=subject,
                     submitter_name=submitter,
+                    progress_info_link=progress_info_link,
                     question_html_link=resolve_url(
                         url, q_html["href"] if q_html else None
                     ),
