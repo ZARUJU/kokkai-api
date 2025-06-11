@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 
 from src.models import (
     ShuShitsumonData,
-    ShuShitsumonListData,
+    ShuShitsumonList,
     ShuShitsumonStatusBefore,
 )
 from src.utils import read_from_json, write_to_json, convert_japanese_date
@@ -105,7 +105,7 @@ def fetch_soup(url: str, encoding: Optional[str] = None) -> BeautifulSoup:
     return BeautifulSoup(res.text, "html.parser")
 
 
-def get_qa_shu_list_data(session: int) -> ShuShitsumonListData:
+def get_qa_shu_list_data(session: int) -> ShuShitsumonList:
     """
     指定セッションの衆議院QA一覧をスクレイピングして構造化データを返す。
 
@@ -113,14 +113,14 @@ def get_qa_shu_list_data(session: int) -> ShuShitsumonListData:
         session (int): 対象セッション番号。
 
     Returns:
-        ShuShitsumonListData: 質問リストを格納したデータモデル。
+        ShuShitsumonList: 質問リストを格納したデータモデル。
     """
     url = get_session_url(session)
     soup = fetch_soup(url, encoding="shift_jis")
     base = url.rsplit("/", 1)[0] + "/"
 
     table = soup.find("table", id="shitsumontable")
-    questions: List[ShuShitsumonData] = []
+    items: List[ShuShitsumonData] = []
     if table:
         headers = [
             th.get_text(strip=True).replace("\n", "") for th in table.find_all("th")
@@ -146,7 +146,7 @@ def get_qa_shu_list_data(session: int) -> ShuShitsumonListData:
                 return a["href"] if a and a.has_attr("href") else None
 
             num = text_of("番号")
-            questions.append(
+            items.append(
                 ShuShitsumonData(
                     number=int(num) if num and num.isdigit() else None,
                     question_subject=text_of("質問件名"),
@@ -158,7 +158,7 @@ def get_qa_shu_list_data(session: int) -> ShuShitsumonListData:
                 )
             )
 
-    return ShuShitsumonListData(source=url, session=session, questions=questions)
+    return ShuShitsumonList(source=url, session=session, items=items)
 
 
 def extract_text_by_selector(
@@ -310,9 +310,9 @@ def save_qa_shu_question_texts(session: int, wait_second: float = 1.0):
         session (int): セッション番号。
         wait_second (float): 各リクエスト間の待機時間（秒）。
     """
-    data = ShuShitsumonListData(**read_from_json(f"data/qa_shu/list/{session}.json"))
+    data = ShuShitsumonList(**read_from_json(f"data/qa_shu/list/{session}.json"))
     _save_html_texts(
-        session, data.questions, "question_html_link", "q", get_qa_shu_q, wait_second
+        session, data.items, "question_html_link", "q", get_qa_shu_q, wait_second
     )
 
 
@@ -324,9 +324,9 @@ def save_qa_shu_answer_texts(session: int, wait_second: float = 1.0):
         session (int): セッション番号。
         wait_second (float): 各リクエスト間の待機時間（秒）。
     """
-    data = ShuShitsumonListData(**read_from_json(f"data/qa_shu/list/{session}.json"))
+    data = ShuShitsumonList(**read_from_json(f"data/qa_shu/list/{session}.json"))
     _save_html_texts(
-        session, data.questions, "answer_html_link", "a", get_qa_shu_a, wait_second
+        session, data.items, "answer_html_link", "a", get_qa_shu_a, wait_second
     )
 
 

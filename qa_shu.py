@@ -12,7 +12,7 @@ from src.utils import (
     delete_md_files_with_message,
     remove_text_from_md_files,
 )
-from src.models import ShuShitsumonListData
+from src.models import ShuShitsumonList
 
 WAIT_SECOND = 1.0
 
@@ -54,7 +54,7 @@ def process_session(session: int, idx: int, total: int, force_latest: bool = Fal
         write_to_json(data.model_dump(), str(list_path))
     else:
         print(f"  ▷ リスト既存, スキップ: {list_path}")
-        data = ShuShitsumonListData(**read_from_json(str(list_path)))
+        data = ShuShitsumonList(**read_from_json(str(list_path)))
 
     wait = WAIT_SECOND if not force_latest else 1.0
     print(f"  ▷ 質問テキスト保存 (wait={wait}s)")
@@ -65,7 +65,7 @@ def process_session(session: int, idx: int, total: int, force_latest: bool = Fal
     print("  ▷ MDクリーンアップ")
     clean_texts(session)
 
-    for q in data.questions:
+    for q in data.items:
         print(f"    ▷ ステータス保存: question_id={q.number}")
         save_status_if_needed(session, q, wait, force_latest)
 
