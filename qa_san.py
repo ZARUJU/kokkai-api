@@ -12,6 +12,7 @@ from src.qa_san_utils import (
     get_qa_sangiin_list,
     save_question_texts,
     save_answer_texts,
+    save_status_if_needed,
 )
 
 WAIT_SECOND = 1.0
@@ -141,12 +142,7 @@ def find_latest_session(sessions: List[Dict]) -> int:
 def process_session(session: int, idx: int, total: int, force_latest: bool = False):
     """
     指定回次の参議院QAを取得・保存し、Markdownの不要箇所をクリーンアップする。
-
-    Args:
-        session (int): セッション番号。
-        idx (int): 処理順序 (1-based)。
-        total (int): 全セッション数。
-        force_latest (bool): 最新回次ならTrue（一覧JSONを必ず再取得）。
+    各質問について経過状況も保存する。
     """
     print(f"[{idx}/{total}] Processing session: {session}")
     list_dir = Path("data/qa_sangiin/list")
@@ -161,6 +157,9 @@ def process_session(session: int, idx: int, total: int, force_latest: bool = Fal
             f.write(data.model_dump_json(indent=2))
     else:
         print(f"  ▷ List exists, skip: {list_path}")
+        from src.models import SangiinShitsumonList
+
+        data = SangiinShitsumonList(**read_from_json(str(list_path)))
 
     # テキスト保存
     wait = WAIT_SECOND if not force_latest else 1.0
@@ -172,6 +171,13 @@ def process_session(session: int, idx: int, total: int, force_latest: bool = Fal
     # MDクリーンアップ
     print("  ▷ Cleaning up markdown files")
     clean_texts(session)
+
+    # 各質問の経過状況保存
+    for q in data.items:
+        print(f"    ▷ ステータス保存: question_id={q.number}")
+        save_status_if_needed(
+            session, q.number, q.progress_info_link, wait, force_latest
+        )
 
 
 def main():

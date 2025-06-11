@@ -1,11 +1,12 @@
 import time
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 from src.models import SangiinShitsumonData, SangiinShitsumonList
+from src.utils import read_from_json, write_to_json, convert_japanese_date
 
 
 def get_session_url(session: int) -> str:
@@ -131,3 +132,138 @@ def save_answer_texts(session: int, wait: float = 1.0):
     """
     data = get_qa_sangiin_list(session)
     _save_texts(session, data.items, "answer_html_link", "a", wait)
+
+
+def extract_table_data_from_html(html: str) -> Dict[str, Optional[str]]:
+    """
+    改良版: 同じ行に複数ペアがあっても拾えるようにペア単位でループします。
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    data: Dict[str, Optional[str]] = {
+        "session_number": None,
+        "session_type": None,
+        "question_number": None,
+        "question_subject": None,
+        "submitter_name": None,
+        "submitted_date": None,
+        "cabinet_transfer_date": None,
+        "reply_received_date": None,
+        "status": None,
+    }
+
+    # 回次・種別
+    header = soup.find("p", class_="exp")
+    if header:
+        import re
+
+        m = re.match(r"第(\d+)回国会（(.+?)）", header.get_text(strip=True))
+        if m:
+            data["session_number"] = int(m.group(1))
+            data["session_type"] = m.group(2)
+
+    tables = soup.find_all("table", class_="list_c")
+
+    # -- テーブル①：件名・回次・番号
+    if len(tables) > 0:
+        for row in tables[0].find_all("tr"):
+            cols = row.find_all(["th", "td"])
+            # 2つおきに key/value として読む
+            for i in range(0, len(cols) - 1, 2):
+                key = cols[i].get_text(strip=True)
+                val = cols[i + 1].get_text(strip=True)
+                if key == "件名":
+                    data["question_subject"] = val
+                elif key == "提出回次":
+                    data["session_number"] = int(val.replace("回", ""))
+                elif key == "提出番号":
+                    # ここできちんと数値変換
+                    data["question_number"] = int(val)
+
+    # -- テーブル②：提出日・提出者
+    if len(tables) > 1:
+        for row in tables[1].find_all("tr"):
+            cols = row.find_all(["th", "td"])
+            for i in range(0, len(cols) - 1, 2):
+                key = cols[i].get_text(strip=True)
+                val = cols[i + 1].get_text(strip=True)
+                if key == "提出日":
+                    data["submitted_date"] = val
+                elif key == "提出者":
+                    data["submitter_name"] = (
+                        val.replace("君", "").strip().replace("　", "")
+                    )
+
+    # -- テーブル④：転送日・答弁書受領日
+    if len(tables) > 3:
+        for row in tables[3].find_all("tr"):
+            cols = row.find_all(["th", "td"])
+            for i in range(0, len(cols) - 1, 2):
+                key = cols[i].get_text(strip=True)
+                val = cols[i + 1].get_text(strip=True)
+                if key == "転送日":
+                    data["cabinet_transfer_date"] = val
+                elif key == "答弁書受領日":
+                    data["reply_received_date"] = val
+
+    # -- status 判定
+    if data["reply_received_date"]:
+        data["status"] = "答弁受理"
+    elif data["cabinet_transfer_date"]:
+        data["status"] = "内閣転送"
+    elif data["submitted_date"]:
+        data["status"] = "質問受理"
+
+    return data
+
+
+def save_status_if_needed(
+    session: int,
+    question_number: int,
+    progress_info_link: str,
+    wait_second: float = 1.0,
+    force_if_not_received: bool = False,
+):
+    """
+    参議院の経過情報ページのJSONを取得し、保存が必要な場合のみファイル出力する。
+
+    Args:
+        session (int): セッション番号。
+        question_number (int): 質問番号。
+        progress_info_link (str): 経過情報ページのURL。
+        wait_second (float): リクエスト間の待機時間（秒）。
+        force_if_not_received (bool): 強制取得フラグ。Trueなら既存でも再取得。
+    """
+    path = Path(f"data/qa_sangiin/complete/{session}/status/{question_number}.json")
+
+    # 既存ファイルのチェック
+    if path.exists() and not force_if_not_received:
+        existing_data = read_from_json(str(path))
+        if existing_data.get("reply_received_date"):
+            print(f"[SKIP] 答弁受領済みのため: {path}")
+            return
+        print(f"[SKIP] 既存: {path}")
+        return
+
+    print(f"[WAIT] {wait_second}s 後に取得: {progress_info_link}")
+    time.sleep(wait_second)
+    print(f"[FETCH] {progress_info_link}")
+
+    res = requests.get(progress_info_link)
+    res.encoding = "utf-8"
+    html = res.text
+    raw_data = extract_table_data_from_html(html)
+
+    # 日付の変換
+    data = {
+        **raw_data,
+        "submitted_date": convert_japanese_date(raw_data.get("submitted_date")),
+        "cabinet_transfer_date": convert_japanese_date(
+            raw_data.get("cabinet_transfer_date")
+        ),
+        "reply_received_date": convert_japanese_date(
+            raw_data.get("reply_received_date")
+        ),
+    }
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_to_json(data, path=str(path))
