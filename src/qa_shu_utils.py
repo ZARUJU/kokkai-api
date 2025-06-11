@@ -397,6 +397,20 @@ KANJI_NUM_MAP = {
 }
 
 
+def kanji_to_int(text: str) -> int:
+    """Convert simple Kanji numerals (<=99) to integer."""
+    if not text:
+        return 0
+    if text == "十":
+        return 10
+    if "十" in text:
+        tens_part, _, ones_part = text.partition("十")
+        tens = 1 if tens_part == "" else KANJI_NUM_MAP.get(tens_part, 0)
+        ones = 0 if ones_part == "" else KANJI_NUM_MAP.get(ones_part, 0)
+        return tens * 10 + ones
+    return KANJI_NUM_MAP.get(text, 0)
+
+
 def extract_submitter_count(text: Optional[str]) -> int:
     """
     提出者数を算出（主提出者 + 外〇名）。
@@ -413,8 +427,8 @@ def extract_submitter_count(text: Optional[str]) -> int:
     """
     if not text:
         return 0
-    m = re.search(r"外([零〇一二三四五六七八九十])名", text)
-    extra = KANJI_NUM_MAP.get(m.group(1), 0) if m else 0
+    m = re.search(r"外([零〇一二三四五六七八九十]+)名", text)
+    extra = kanji_to_int(m.group(1)) if m else 0
     return 1 + extra
 
 
