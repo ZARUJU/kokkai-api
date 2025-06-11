@@ -45,7 +45,7 @@ for row in rows[1:]:
         end_date = raw_end_text
         dissolved = False
 
-    print(session_number)
+    # print(session_number)
     session = {
         "session_number": session_number,
         "session_type": session_type,
@@ -58,6 +58,6 @@ for row in rows[1:]:
     }
     sessions.append(session)
 
-print(json.dumps(sessions, ensure_ascii=False, indent=2))
+# print(json.dumps(sessions, ensure_ascii=False, indent=2))
 
 write_to_json(data=sessions, path="data/session.json")
