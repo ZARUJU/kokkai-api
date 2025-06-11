@@ -130,7 +130,7 @@ def process_deli_id(deli_id: str, base_url: str) -> None:
     try:
         res = requests.get(detail_url)
         res.encoding = "euc-jp"
-        data = parse_minutes_detail_page(res.text, detail_url)
+        data = {**parse_minutes_detail_page(res.text, detail_url), "deli_id": deli_id}
         write_to_json(data=data, path=path)
         print(f"    ✔ Saved {deli_id} → {path}")
     except Exception as e:
@@ -201,8 +201,8 @@ if __name__ == "__main__":
     # 取得範囲を指定
     today = datetime.today().strftime("%Y%m%d")
     print("今日：", today)
-    fetch_shugiintv_data("20100730", "20100730")
-    fetch_shugiintv_data(today, today)
+    # fetch_shugiintv_data("20100730", "20100730")
+    fetch_shugiintv_data("20250303", today)
 
     # 前回の取得時にデータが準備中だったものを再取得
     delid_list = get_missing_deli_ids("data/shugiintv")
