@@ -9,6 +9,15 @@ from src.models import SangiinShitsumonData, SangiinShitsumonList
 from src.utils import read_from_json, write_to_json, convert_japanese_date
 
 
+def status_is_received(session: int, question_number: int) -> bool:
+    """既存ステータスが答弁受理か判定"""
+    path = Path(f"data/qa_sangiin/complete/{session}/status/{question_number}.json")
+    if not path.exists():
+        return False
+    data = read_from_json(str(path))
+    return data.get("status") == "答弁受理"
+
+
 def get_session_url(session: int) -> str:
     return (
         f"https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/{session}/syuisyo.htm"
@@ -108,9 +117,12 @@ def _save_texts(
         if not link or num is None:
             continue
         path = base / f"{num}.md"
-        if path.exists():
+        need_update = not status_is_received(session, num)
+        if path.exists() and not need_update:
             print(f"[SKIP] {path} already exists")
             continue
+        if path.exists() and need_update:
+            print(f"[REFETCH] {path} (status pending)")
         print(f"[WAIT] {wait}s -> {link}")
         time.sleep(wait)
         print(f"[FETCH] {link}")
@@ -245,11 +257,9 @@ def save_status_if_needed(
     """
     path = Path(f"data/qa_sangiin/complete/{session}/status/{question_number}.json")
 
-    # 既存ファイルのチェック
     if path.exists() and not force_if_not_received:
-        existing_data = read_from_json(str(path))
-        if existing_data.get("reply_received_date"):
-            print(f"[SKIP] 答弁受領済みのため: {path}")
+        if status_is_received(session, question_number):
+            print(f"[SKIP] 答弁受理済みのため: {path}")
             return
         print(f"[SKIP] 既存: {path}")
         return

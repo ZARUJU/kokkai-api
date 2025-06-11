@@ -175,8 +175,11 @@ def process_session(session: int, idx: int, total: int, force_latest: bool = Fal
     # 各質問の経過状況保存
     for q in data.items:
         print(f"    ▷ ステータス保存: question_id={q.number}")
+        from src.qa_san_utils import status_is_received
+
+        force = force_latest or not status_is_received(session, q.number)
         save_status_if_needed(
-            session, q.number, q.progress_info_link, wait, force_latest
+            session, q.number, q.progress_info_link, wait, force
         )
 
 
