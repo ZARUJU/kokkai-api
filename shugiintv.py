@@ -205,6 +205,7 @@ if __name__ == "__main__":
     fetch_shugiintv_data("20250303", today)
 
     # 前回の取得時にデータが準備中だったものを再取得
+    print("抜けているデータの取得を開始")
     delid_list = get_missing_deli_ids("data/shugiintv")
     i = 1
     for deli_id in delid_list:
