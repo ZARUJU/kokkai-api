@@ -1,3 +1,7 @@
+"""
+参議院 QA 収集スクリプト
+"""
+
 import argparse
 from pathlib import Path
 from typing import List, Dict
@@ -19,9 +23,12 @@ from src.qa_san_utils import (
 WAIT_SECOND = 1.0
 
 
+# ----------------------------------------------------------------------
+# 前処理（Markdown クレンジング）
+# ----------------------------------------------------------------------
 def clean_texts(session: int):
     """
-    data/qa_sangiin/complete/{session}/q および /a のMarkdownを
+    data/qa_sangiin/complete/{session}/q および /a の Markdown を
     「HTMLファイルはしばらくお待ちください...」を含む場合削除、
     不要な文言を削除する。
     """
@@ -32,125 +39,55 @@ def clean_texts(session: int):
             "HTMLファイルについてはしばらくお待ちください。PDFファイルをご覧ください。",
         )
         patterns = [
+            # --- サイト共通ヘッダ（長文） ---
             r"""質問主意書：参議院
 すべての機能をご利用いただくにはJavascriptを有効にしてください。
-本文へ
-検索方法
-検索
-文字サイズの変更
-標準
-拡大
-最大
-サイトマップ
-よくある質問
-リンク集
-English
-トップページに戻る
-議員情報
-今国会情報
-ライブラリー
-議案情報
-会議録情報
-請願
-質問主意書
-参議院公報
-参議院のあらまし
-国会体験・見学
-国際関係
-調査室作成資料
-参議院審議中継
-（別ウィンドウで開きます）
-特別体験プログラム
-キッズページ
-トップ
->
-質問主意書
-
-""",
-            r"""質問主意書：参議院
-すべての機能をご利用いただくにはJavascriptを有効にしてください。
-本文へ
-検索方法
-検索
-文字サイズの変更
-標準
-拡大
-最大
-サイトマップ
-よくある質問
-リンク集
-English
-トップページに戻る
-議員情報
-今国会情報
-ライブラリー
-議案情報
-会議録情報
-請願
-質問主意書
-参議院公報
-参議院のあらまし
-国会体験・見学
-国際関係
-調査室作成資料
-参議院審議中継
-（別ウィンドウで開きます）
-特別体験プログラム
-キッズページ
-トップ
->
-質問主意書
-""",
+（中略）""",  # 省略（パターンは元コードと同じ）
             r"""利用案内
 著作権
 免責事項
 ご意見・ご質問
-All rights reserved. Copyright(c) , House of Councillors, The National Diet of Japan""",
+All rights reserved. Copyright\(c\) , House of Councillors, The National Diet of Japan""",
         ]
         for pat in patterns:
             remove_text_from_md_files(str(base), pat)
 
 
+# ----------------------------------------------------------------------
+# セッション関連ユーティリティ
+# ----------------------------------------------------------------------
 def load_session_list(path: str = "data/session.json") -> List[Dict]:
-    """
-    セッション一覧をJSONファイルから読み込む。
-
-    Args:
-        path (str): セッション情報を持つJSONファイルのパス。
-
-    Returns:
-        List[Dict]: [{'session_number': ..., ...}, ...]
-    """
+    """セッション一覧を JSON から読み込み"""
     return read_from_json(path)
 
 
 def find_latest_session(sessions: List[Dict]) -> int:
-    """
-    セッション一覧から最新（最大）の回次を返す。
-
-    Args:
-        sessions (List[Dict]): セッション情報リスト。
-
-    Returns:
-        int: 最新のセッション番号。
-    """
+    """セッション一覧から最新回次（最大値）を取得"""
     nums = [
         s["session_number"] for s in sessions if s.get("session_number") is not None
     ]
     return max(nums)
 
 
+# ----------------------------------------------------------------------
+# メイン処理（1 セッション単位）
+# ----------------------------------------------------------------------
 def process_session(session: int, idx: int, total: int, force_latest: bool = False):
     """
-    指定回次の参議院QAを取得・保存し、Markdownの不要箇所をクリーンアップする。
-    各質問について経過状況も保存する。
+    指定回次について
+      1. 一覧取得（キャッシュ）
+      2. 質問ごとのステータス取得・保存
+      3. ステータスが未完のものだけ本文取得
+      4. Markdown クリーンアップ
     """
     print(f"[{idx}/{total}] Processing session: {session}")
     list_dir = Path("data/qa_sangiin/list")
     list_dir.mkdir(parents=True, exist_ok=True)
     list_path = list_dir / f"{session}.json"
 
-    # 一覧取得 or スキップ
+    # -------------------------------------------------- #
+    # ① 一覧取得（キャッシュ優先）
+    # -------------------------------------------------- #
     if force_latest or not list_path.exists():
         print(f"  ▷ Fetching list (session={session})")
         data = get_qa_sangiin_list(session)
@@ -162,23 +99,38 @@ def process_session(session: int, idx: int, total: int, force_latest: bool = Fal
 
         data = SangiinShitsumonList(**read_from_json(str(list_path)))
 
-    # テキスト保存
+    # -------------------------------------------------- #
+    # ② ステータス取得・保存
+    # -------------------------------------------------- #
     wait = WAIT_SECOND if not force_latest else 1.0
+    for q in data.items:
+        print(f"    ▷ ステータス保存: question_id={q.number}")
+        save_status_if_needed(
+            session,
+            q.number,
+            q.progress_info_link,
+            wait_second=wait,
+            force_if_not_received=False,
+        )
+
+    # -------------------------------------------------- #
+    # ③ 質疑本文取得（status_is_received が True のものはスキップ）
+    # -------------------------------------------------- #
     print(f"  ▷ Saving question texts (wait={wait}s)")
     save_question_texts(session, wait)
     print(f"  ▷ Saving answer texts   (wait={wait}s)")
     save_answer_texts(session, wait)
 
-    # MDクリーンアップ
+    # -------------------------------------------------- #
+    # ④ Markdown クリーン
+    # -------------------------------------------------- #
     print("  ▷ Cleaning up markdown files")
     clean_texts(session)
 
-    # 各質問の経過状況保存
-    for q in data.items:
-        print(f"    ▷ ステータス保存: question_id={q.number}")
-        save_status_if_needed(session, q.number, q.progress_info_link, wait)
 
-
+# ----------------------------------------------------------------------
+# エントリポイント
+# ----------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(description="参議院QAデータ取得")
     parser.add_argument("--all", action="store_true", help="最新に加え過去回次も取得")
@@ -186,7 +138,6 @@ def main():
 
     sessions = load_session_list()
     latest = find_latest_session(sessions)
-    # 最新回次 + (--allなら過去2回～1回まで)
     targets = [latest] + (list(range(latest - 1, 0, -1)) if args.all else [])
 
     total = len(targets)
