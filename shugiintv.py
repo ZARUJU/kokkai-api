@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import argparse
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -8,7 +9,13 @@ from typing import List
 
 from src.utils import write_to_json, file_exists
 
+# ==== 定数定義 ====
 BASE_URL = "https://www.shugiintv.go.jp/jp/index.php"
+DATA_FOLDER = "data/shugiintv"
+LIST_SLEEP = 0.5  # 日付ごとの一覧取得時の待機秒数
+DETAIL_SLEEP = 1  # 個別詳細取得時の待機秒数
+
+# ==== ユーティリティ関数 ====
 
 
 def japanese_to_iso(date_str: str) -> str:
@@ -114,19 +121,16 @@ def get_date_range(start_yyyymmdd: str, end_yyyymmdd: str) -> List[str]:
 
 def process_deli_id(deli_id: str, base_url: str) -> None:
     """
-    単一のdeli_idについて、
-    - 既存ファイルがあればスキップ
-    - 詳細ページを取得
-    - パースしてJSON保存
+    単一のdeli_idについて、詳細取得～JSON保存
     """
-    path = f"data/shugiintv/{deli_id}.json"
+    path = f"{DATA_FOLDER}/{deli_id}.json"
     if file_exists(path):
         print(f"    ▷ Skipping {deli_id}: 既存ファイルあり ({path})")
         return
 
     detail_url = f"{base_url}?ex=VL&deli_id={deli_id}"
     print(f"    ▷ Fetching {deli_id} from {detail_url}")
-    time.sleep(1)  # マナーとして間隔をあける
+    time.sleep(DETAIL_SLEEP)
     try:
         res = requests.get(detail_url)
         res.encoding = "euc-jp"
@@ -139,14 +143,14 @@ def process_deli_id(deli_id: str, base_url: str) -> None:
 
 def fetch_shugiintv_data(start_date: str, end_date: str) -> None:
     """
-    指定期間の衆議院TVデータを取得
+    指定期間のデータ取得を統括
     """
     dates = get_date_range(start_date, end_date)
     print(f"開始: {start_date} → 終了: {end_date} ({len(dates)}日分)")
 
     for i, date in enumerate(dates, 1):
         print(f"[{i}/{len(dates)}] 処理中: {date}")
-        time.sleep(0.5)
+        time.sleep(LIST_SLEEP)
         list_url = f"{BASE_URL}?ex=VL&u_day={date}"
         try:
             res = requests.get(list_url)
@@ -159,13 +163,12 @@ def fetch_shugiintv_data(start_date: str, end_date: str) -> None:
         for deli_id in ids:
             process_deli_id(deli_id, BASE_URL)
 
-    print("全処理完了。")
+    print("一覧処理完了。")
 
 
 def list_deli_ids(data_folder: str) -> List[int]:
     """
-    指定フォルダ内の '{delid}.json' ファイル名から
-    delid の整数リストを返す。
+    data_folder内の'{delid}.json'ファイル名からIDリストを返す
     """
     deli_ids = []
     if not os.path.isdir(data_folder):
@@ -182,8 +185,7 @@ def list_deli_ids(data_folder: str) -> List[int]:
 
 def get_missing_deli_ids(data_folder: str) -> List[int]:
     """
-    フォルダ内の delid リストを取得し、
-    最小値～最大値の間で欠損している整数を返す。
+    フォルダ内のIDリストから欠損IDを返す
     """
     ids = list_deli_ids(data_folder)
     if not ids:
@@ -191,26 +193,46 @@ def get_missing_deli_ids(data_folder: str) -> List[int]:
 
     min_id, max_id = ids[0], ids[-1]
     full_range = set(range(min_id, max_id + 1))
-    existing = set(ids)
-    missing = sorted(full_range - existing)
+    missing = sorted(full_range - set(ids))
     return missing
 
 
-if __name__ == "__main__":
-    # 例: 2025年3月1日～2025年5月1日
-    # 取得範囲を指定
-    today = datetime.today().strftime("%Y%m%d")
-    print("今日：", today)
-    # fetch_shugiintv_data("20100730", "20100730")
-    fetch_shugiintv_data("20250303", today)
+def main():
+    parser = argparse.ArgumentParser(description="衆議院TVデータ取得ツール")
+    parser.add_argument(
+        "-s", "--start", help="取得開始日（YYYYMMDD）。省略時は本日", type=str
+    )
+    parser.add_argument(
+        "-e", "--end", help="取得終了日（YYYYMMDD）。省略時は開始日と同じ", type=str
+    )
+    args = parser.parse_args()
 
-    # 前回の取得時にデータが準備中だったものを再取得
+    # 日付の設定とバリデーション
+    today = datetime.today().strftime("%Y%m%d")
+    start = args.start or today
+    try:
+        datetime.strptime(start, "%Y%m%d")
+    except ValueError:
+        parser.error("開始日の形式はYYYYMMDDで指定してください。")
+
+    end = args.end or start
+    try:
+        datetime.strptime(end, "%Y%m%d")
+    except ValueError:
+        parser.error("終了日の形式はYYYYMMDDで指定してください。")
+
+    # 実行
+    fetch_shugiintv_data(start, end)
+
+    # 抜けID再取得
     print("抜けているデータの取得を開始")
-    delid_list = get_missing_deli_ids("data/shugiintv")
-    i = 1
-    for deli_id in delid_list:
-        print(f"[{i}/{len(delid_list)}] 処理中: {deli_id}")
-        process_deli_id(deli_id, BASE_URL)
-        i += 1
+    missing = get_missing_deli_ids(DATA_FOLDER)
+    for i, deli_id in enumerate(missing, 1):
+        print(f"[再取得 {i}/{len(missing)}] ID: {deli_id}")
+        process_deli_id(str(deli_id), BASE_URL)
 
     print("全処理完了。")
+
+
+if __name__ == "__main__":
+    main()
