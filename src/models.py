@@ -9,7 +9,7 @@ class ShugiinTV(BaseModel):
     topics: List[str] = []
     speakers: List[str] = []
     url: str
-    deli_id: str
+    deli_id: int
 
 
 # 質問主意書
