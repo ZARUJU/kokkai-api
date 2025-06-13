@@ -109,7 +109,7 @@ def main():
     meetings, shutvs = to_simple_dicts(raw_meetings, raw_shutvs)
     merged_sorted = merge_and_sort(meetings, shutvs)
 
-    pprint.pprint(merged_sorted)
+    # pprint.pprint(merged_sorted)
     print(f"{len(merged_sorted)} / {raw_meetings_len}")
     write_to_json(merged_sorted, OUTPUT_PATH)
     print(f"Written merged data to {OUTPUT_PATH}")
