@@ -6,6 +6,16 @@
 uv run session_list.py
 ```
 
+## 会議録
+
+```bash
+# 最新取得済みから実行日までを取得
+uv run minutes.py
+
+# 指定期間のものを取得
+uv run minutes.py --from 2025-06-06 --until 2025-06-13
+```
+
 ## 議案データ
 
 ## 質問主意書
@@ -49,7 +59,7 @@ uv run shugiintv.py -s 20250601 -e 20250605
 
 ### 会議録と衆議院の映像
 
-```
+```bash
 uv run relations_shutv_minutes.py
 ```
 
