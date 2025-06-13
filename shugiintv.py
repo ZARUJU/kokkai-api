@@ -134,7 +134,10 @@ def process_deli_id(deli_id: str, base_url: str) -> None:
     try:
         res = requests.get(detail_url)
         res.encoding = "euc-jp"
-        data = {**parse_minutes_detail_page(res.text, detail_url), "deli_id": deli_id}
+        data = {
+            **parse_minutes_detail_page(res.text, detail_url),
+            "deli_id": int(deli_id),
+        }
         write_to_json(data=data, path=path)
         print(f"    ✔ Saved {deli_id} → {path}")
     except Exception as e:
