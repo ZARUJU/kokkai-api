@@ -121,25 +121,37 @@ def get_date_range(start_yyyymmdd: str, end_yyyymmdd: str) -> List[str]:
 
 def process_deli_id(deli_id: str, base_url: str) -> None:
     """
-    単一のdeli_idについて、詳細取得～JSON保存
+    単一のdeli_idについて、詳細取得～JSON保存＋元HTML保存
     """
-    path = f"{DATA_FOLDER}/{deli_id}.json"
-    if file_exists(path):
-        print(f"    ▷ Skipping {deli_id}: 既存ファイルあり ({path})")
+    json_path = f"{DATA_FOLDER}/{deli_id}.json"
+    if file_exists(json_path):
+        print(f"    ▷ Skipping {deli_id}: 既存ファイルあり ({json_path})")
         return
 
     detail_url = f"{base_url}?ex=VL&deli_id={deli_id}"
     print(f"    ▷ Fetching {deli_id} from {detail_url}")
     time.sleep(DETAIL_SLEEP)
+
     try:
         res = requests.get(detail_url)
         res.encoding = "euc-jp"
+
+        # ディレクトリが存在しない場合は作成しておく
+        os.makedirs(DATA_FOLDER, exist_ok=True)
+
+        # 取得したHTMLをそのまま保存
+        html_path = f"{DATA_FOLDER}/{deli_id}.html"
+        with open(html_path, "w", encoding="euc-jp") as f_html:
+            f_html.write(res.text)
+        print(f"    ✔ HTML saved to {html_path}")
+
+        # JSON用データ作成 & 保存
         data = {
             **parse_minutes_detail_page(res.text, detail_url),
             "deli_id": int(deli_id),
         }
-        write_to_json(data=data, path=path)
-        print(f"    ✔ Saved {deli_id} → {path}")
+        write_to_json(data=data, path=json_path)
+        print(f"    ✔ JSON saved to {json_path}")
     except Exception as e:
         print(f"    !! Error on {deli_id}: {e}")
 
