@@ -28,6 +28,8 @@ def load_json_models(
     """フォルダ内の全 JSON を読み込み Pydantic モデルに変換して返す。"""
     results: List[Any] = []
     for fname in os.listdir(data_dir):
+        if fname == "empty_html_ids.json":
+            continue
         if not fname.lower().endswith(".json"):
             continue
         path = os.path.join(data_dir, fname)
