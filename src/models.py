@@ -15,72 +15,35 @@ class ShugiinTV(BaseModel):
 # 質問主意書
 
 
-class ShuShitsumonData(BaseModel):
-    number: Optional[int] = Field(None)
-    question_subject: Optional[str] = Field(None)
-    submitter_name: Optional[str] = Field(None)
-    progress_status: Optional[str] = Field(None)
-    progress_info_link: Optional[str] = Field(None)
-    question_html_link: Optional[str] = Field(None)
-    answer_html_link: Optional[str] = Field(None)
+class Inquiry(BaseModel):
+    """個々の質問主意書の基本情報を保持するモデル"""
+
+    number: int
+    subject: str
+    submitter: str
+    progress_info_link: str
+    question_html_link: str
+    answer_html_link: str
 
 
-class ShuShitsumonList(BaseModel):
-    session: int
+class InquiryInfoList(BaseModel):
+    """質問主意書リスト全体の情報を保持するモデル"""
+
     source: str
-    items: List[ShuShitsumonData]
+    items: List[Inquiry]
 
 
-class ShuShitsumonStatusBefore(BaseModel):
-    session_number: Optional[int]
-    session_type: Optional[str]
-    question_number: Optional[int]
-    question_subject: Optional[str]
-    submitter_name: Optional[str]
-    party_name: Optional[str]
-    submitted_date: Optional[str]
-    cabinet_transfer_date: Optional[str]
-    reply_delay_notice_date: Optional[str]
-    reply_delay_deadline: Optional[str]
-    reply_received_date: Optional[str]
-    withdrawal_date: Optional[str]
-    withdrawal_notice_date: Optional[str]
-    status: Optional[str]
+class InquiryStatus(BaseModel):
+    """質問主意書の詳細なステータス情報を保持するモデル"""
 
-
-class ShuShitsumonStatus(BaseModel):
-    session_number: Optional[int]
-    session_type: Optional[str]
-    question_number: Optional[int]
-    question_subject: Optional[str]
-    submitter_name: Optional[str]
-    submitter_count: Optional[int]
-    party_name: Optional[str]
-    submitted_date: Optional[str]
-    cabinet_transfer_date: Optional[str]
-    reply_delay_notice_date: Optional[str]
-    reply_delay_deadline: Optional[str]
-    reply_received_date: Optional[str]
-    withdrawal_date: Optional[str]
-    withdrawal_notice_date: Optional[str]
-    status: Optional[str]
-
-
-class SangiinShitsumonData(BaseModel):
-    number: Optional[int] = Field(None)
-    question_subject: Optional[str] = Field(None)
-    submitter_name: Optional[str] = Field(None)
-    progress_info_link: Optional[str] = Field(None)
-    question_html_link: Optional[str] = Field(None)
-    question_pdf_link: Optional[str] = Field(None)
-    answer_html_link: Optional[str] = Field(None)
-    answer_pdf_link: Optional[str] = Field(None)
-
-
-class SangiinShitsumonList(BaseModel):
     session: int
-    source: str
-    items: List[SangiinShitsumonData]
+    number: int
+    subject: str
+    submitter: str
+    question_date: str
+    cabinet_date: str
+    answer_date: str
+    status: str
 
 
 # 国会会議録検索システムAPI
