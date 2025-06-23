@@ -23,10 +23,14 @@ def write_to_json(data: dict, path: str):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 
-def fetch_and_save_html(url: str, output_path_str: str):
-    """指定されたURLからHTMLを取得し、ファイルに保存する"""
+def fetch_and_save_html(url: str, output_path_str: str) -> bool:
+    """
+    指定されたURLからHTMLを取得し、ファイルに保存する。
+    実際にダウンロードと保存が成功した場合に True を返すように変更。
+    """
     if not url:
-        return
+        # URLが存在しない場合は何もせず、Falseを返す（ネットワークアクセスは発生しない）
+        return False
     output_path = Path(output_path_str)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -36,8 +40,10 @@ def fetch_and_save_html(url: str, output_path_str: str):
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(response.text)
         print(f"    -> HTMLを保存しました: {output_path_str}")
+        return True  # 成功時にTrueを返す
     except requests.exceptions.RequestException as e:
         print(f"    -> HTMLの取得に失敗しました: {url}, Error: {e}")
+        return False  # 失敗時にFalseを返す
 
 
 def convert_japanese_date_to_iso(jp_date_str: str) -> str:
@@ -197,7 +203,6 @@ def process_session(session_number: int):
         inquiry_list = create_sangiin_inquiry_info_list(session_number)
         print(f"{len(inquiry_list.items)}件の質問が見つかりました。")
 
-        # 保存先ディレクトリを 'qa_san' に指定
         list_output_path = f"data/qa_san/list/{session_number}.json"
         write_to_json(data=inquiry_list.model_dump(), path=list_output_path)
         print(f"質問リストを '{list_output_path}' に保存しました。")
@@ -207,55 +212,56 @@ def process_session(session_number: int):
         for i, inquiry_item in enumerate(inquiry_list.items):
             print(f"  処理中: {i + 1}/{total_items} (質問番号: {inquiry_item.number})")
 
-            action_taken = False
+            # `action_taken` の代わりに `network_accessed` を使用し、
+            # 実際にネットワークアクセスが発生した場合のみTrueになるように変更
+            network_accessed = False
 
             # 1. ステータス情報の取得と保存
             status_path = Path(
                 f"data/qa_san/detail/{session_number}/status/{inquiry_item.number}.json"
             )
+
+            # ステータス取得の要否判定ロジックを整理し、可読性を向上
+            should_fetch_status = False
             if not status_path.exists():
-                action_taken = True
-                status_info = get_sangiin_inquiry_status(inquiry_item, session_number)
-                if status_info:
-                    write_to_json(status_info.model_dump(), str(status_path))
-                    print(f"    -> ステータス情報を保存しました: {status_path}")
+                should_fetch_status = True
             else:
                 try:
                     with open(status_path, "r", encoding="utf-8") as f:
                         existing_data = json.load(f)
                     if existing_data.get("status") != "答弁受理":
-                        action_taken = True
                         print(
                             "    -> ステータスが「答弁受理」ではないため、再取得します。"
                         )
-                        status_info = get_sangiin_inquiry_status(
-                            inquiry_item, session_number
-                        )
-                        if status_info:
-                            write_to_json(status_info.model_dump(), str(status_path))
-                            print(f"    -> ステータス情報を更新しました: {status_path}")
+                        should_fetch_status = True
                     else:
                         print(
                             "    -> ステータスは既に「答弁受理」のためスキップします。"
                         )
                 except (json.JSONDecodeError, IOError) as e:
-                    action_taken = True
                     print(
                         f"    -> 既存ステータスファイルの読み込みに失敗({e})。再取得します。"
                     )
-                    status_info = get_sangiin_inquiry_status(
-                        inquiry_item, session_number
-                    )
-                    if status_info:
-                        write_to_json(status_info.model_dump(), str(status_path))
+                    should_fetch_status = True
+
+            if should_fetch_status:
+                status_info = get_sangiin_inquiry_status(inquiry_item, session_number)
+                # ステータス情報が正常に取得できた場合のみファイル保存とフラグ設定
+                if status_info:
+                    write_to_json(status_info.model_dump(), str(status_path))
+                    print(f"    -> ステータス情報を保存/更新しました: {status_path}")
+                    network_accessed = True
 
             # 2. 質問HTMLの取得と保存
             q_html_path = Path(
                 f"data/qa_san/detail/{session_number}/q_html/{inquiry_item.number}.html"
             )
             if not q_html_path.exists():
-                action_taken = True
-                fetch_and_save_html(inquiry_item.question_html_link, str(q_html_path))
+                # fetch_and_save_htmlの戻り値(bool)を使い、成功した場合のみフラグ設定
+                if fetch_and_save_html(
+                    inquiry_item.question_html_link, str(q_html_path)
+                ):
+                    network_accessed = True
             else:
                 print(f"    -> 質問HTMLは既に存在します。")
 
@@ -264,12 +270,14 @@ def process_session(session_number: int):
                 f"data/qa_san/detail/{session_number}/a_html/{inquiry_item.number}.html"
             )
             if not a_html_path.exists():
-                action_taken = True
-                fetch_and_save_html(inquiry_item.answer_html_link, str(a_html_path))
+                # fetch_and_save_htmlの戻り値(bool)を使い、成功した場合のみフラグ設定
+                if fetch_and_save_html(inquiry_item.answer_html_link, str(a_html_path)):
+                    network_accessed = True
             else:
                 print("    -> 答弁HTMLは既に存在します。")
 
-            if action_taken:
+            # ネットワークアクセスが1回でも発生した場合にのみ1秒待機
+            if network_accessed:
                 time.sleep(1)
 
         print(f"第{session_number}回国会の全質問の詳細情報処理が完了しました。")
@@ -293,7 +301,6 @@ def get_latest_session_from_file(file_path: str) -> Optional[int]:
             print(f"エラー: '{file_path}' が空か、またはリスト形式ではありません。")
             return None
 
-        # 'session_number' を持ち、その値が「整数」である有効なエントリのみをフィルタリング
         valid_sessions = [
             s
             for s in sessions_data
