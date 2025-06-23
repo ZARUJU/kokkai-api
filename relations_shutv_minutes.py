@@ -15,7 +15,7 @@ from src.utils import write_to_json
 
 # ── 設定 ──
 MINUTES_DIR = "data/minutes_api"
-SHUGIINTV_DIR = "data/shugiintv"
+SHUGIINTV_DIR = "data/shugiintv/json"
 OUTPUT_PATH = "data/relations/shutv-minutes.json"
 HOUSE_FILTER = "衆議院"  # 衆議院のみ対象
 
