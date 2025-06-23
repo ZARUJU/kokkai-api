@@ -22,8 +22,30 @@ def write_to_json(data: dict, path: str):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 
+### ▼▼▼ 変更・追加箇所 ▼▼▼ ###
+def check_and_delete_placeholder_html(path: Path):
+    """
+    指定されたパスのHTMLファイルが「準備中」のプレースホルダーであれば削除する。
+    """
+    placeholder_title = "<TITLE>ＨＴＭＬファイルについては準備中です。</TITLE>"
+    if path.exists():
+        try:
+            # ファイルの内容を部分的に読み込んでチェック
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read(512)  # 先頭512バイトで十分
+            if placeholder_title in content:
+                print(f"    -> 準備中の既存ファイルを削除します: {path}")
+                path.unlink()
+        except (IOError, UnicodeDecodeError) as e:
+            # 読み込みエラーが発生したファイルも、不正なファイルとして削除
+            print(
+                f"    -> ファイル読み込みエラー({e})。破損ファイルの可能性があるため削除します: {path}"
+            )
+            path.unlink()
+
+
 def fetch_and_save_html(url: str, output_path_str: str):
-    """指定されたURLからHTMLを取得し、ファイルに保存する"""
+    """指定されたURLからHTMLを取得し、ファイルに保存する。準備中のページは保存しない。"""
     if not url:
         return
     output_path = Path(output_path_str)
@@ -32,11 +54,21 @@ def fetch_and_save_html(url: str, output_path_str: str):
         response = requests.get(url)
         response.raise_for_status()
         response.encoding = response.apparent_encoding
+        html_content = response.text
+
+        # 「準備中です」のタイトルが含まれているかチェック
+        if "<TITLE>ＨＴＭＬファイルについては準備中です。</TITLE>" in html_content:
+            print(f"    -> 準備中のページのため保存をスキップします: {url}")
+            return  # 保存処理を行わずに終了
+
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write(response.text)
+            f.write(html_content)
         print(f"    -> HTMLを保存しました: {output_path_str}")
     except requests.exceptions.RequestException as e:
         print(f"    -> HTMLの取得に失敗しました: {url}, Error: {e}")
+
+
+### ▲▲▲ 変更・追加箇所 ▲▲▲ ###
 
 
 def convert_japanese_date_to_iso(jp_date_str: str) -> str:
@@ -225,6 +257,9 @@ def process_session(session_number: int):
             q_html_path = Path(
                 f"data/qa_shu/detail/{session_number}/q_html/{inquiry_item.number}.html"
             )
+            # 既存の「準備中」ファイルをチェックして削除
+            check_and_delete_placeholder_html(q_html_path)
+
             if not q_html_path.exists():
                 action_taken = True
                 fetch_and_save_html(inquiry_item.question_html_link, str(q_html_path))
@@ -235,6 +270,9 @@ def process_session(session_number: int):
             a_html_path = Path(
                 f"data/qa_shu/detail/{session_number}/a_html/{inquiry_item.number}.html"
             )
+            # 既存の「準備中」ファイルをチェックして削除
+            check_and_delete_placeholder_html(a_html_path)
+
             if not a_html_path.exists():
                 action_taken = True
                 fetch_and_save_html(inquiry_item.answer_html_link, str(a_html_path))
