@@ -1,11 +1,11 @@
-# 配布用議案データの項目定義
+# 議案 ready データの項目定義
 
-この文書は、`data/gian/` に生成する配布用 JSON の各項目が何を意味するかをまとめたものである。
+この文書は、`tmp/ready/gian/` に生成する議案の配布一歩手前 JSON の各項目が何を意味するかをまとめたものである。
 対象は以下の 2 種類。
 
-- `data/gian/list/{session}.json`
+- `tmp/ready/gian/list/{session}.json`
   各回次に掲載されている議案一覧
-- `data/gian/detail/{bill_id}.json`
+- `tmp/ready/gian/detail/{bill_id}.json`
   単一議案の個票
 
 2026-03-09 時点では、`src/pipeline/gian/build_gian_distribution.py` がこの形式で生成する。
@@ -15,16 +15,16 @@
 ### 1.1 一覧
 
 - パス
-  `data/gian/list/{session}.json`
+  `tmp/ready/gian/list/{session}.json`
 - 例
-  `data/gian/list/218.json`
+  `tmp/ready/gian/list/218.json`
 
 ### 1.2 個票
 
 - パス
-  `data/gian/detail/{bill_id}.json`
+  `tmp/ready/gian/detail/{bill_id}.json`
 - 例
-  `data/gian/detail/215-shu_law-2.json`
+  `tmp/ready/gian/detail/215-shu_law-2.json`
 
 ## 2. 共通の考え方
 

@@ -24,6 +24,9 @@
 - `tmp`
   一時出力、検証用ファイル、配布前の中間生成物を置く
 
+現時点では、議案の統合済み JSON はまだ公開仕様確定前のため `tmp/ready/` に置く。
+最終的に外部公開する形式まで固まったものだけ `data/` に昇格させる。
+
 ## セットアップ
 
 Python 3.11 以上を前提としています。
@@ -158,7 +161,7 @@ uv run python src/pipeline/gian/parse_gian_text.py 221
 
 ### `build_gian_distribution.py`
 
-保存済みの議案一覧・進捗・本文データから、配布用の議案一覧 JSON と議案個票 JSON を `data/` に生成します。
+保存済みの議案一覧・進捗・本文データから、配布一歩手前の議案一覧 JSON と議案個票 JSON を `tmp/ready/` に生成します。
 
 - 入力
   `tmp/gian/list/{回次}.json`
@@ -168,8 +171,8 @@ uv run python src/pipeline/gian/parse_gian_text.py 221
 - 引数
   `sessions...`: 対象の国会回次。省略時は `tmp/gian/list/*.json` を全件処理
 - 出力
-  `data/gian/list/{回次}.json`
-  `data/gian/detail/{bill_id}.json`
+  `tmp/ready/gian/list/{回次}.json`
+  `tmp/ready/gian/detail/{bill_id}.json`
 
 実行例:
 
@@ -179,7 +182,7 @@ uv run python src/pipeline/gian/build_gian_distribution.py 218 220 221
 
 ## API
 
-配布済み JSON を FastAPI で配信できます。
+会期一覧と、議案の配布一歩手前 JSON を FastAPI で配信できます。
 
 起動例:
 

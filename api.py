@@ -1,4 +1,4 @@
-"""配布済み JSON を公開する FastAPI アプリケーション。
+"""会期一覧と議案の配布一歩手前 JSON を公開する FastAPI アプリケーション。
 
 主なエンドポイント:
     - GET /health
@@ -10,8 +10,8 @@
 
 入力:
     - data/kaiki.json
-    - data/gian/list/*.json
-    - data/gian/detail/*.json
+    - tmp/ready/gian/list/*.json
+    - tmp/ready/gian/detail/*.json
 
 実行例:
     uv run api.py
@@ -33,13 +33,14 @@ from src.models import (
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = PROJECT_ROOT / "data"
+READY_ROOT = PROJECT_ROOT / "tmp" / "ready"
 KAIKI_PATH = DATA_ROOT / "kaiki.json"
-GIAN_LIST_DIR = DATA_ROOT / "gian" / "list"
-GIAN_DETAIL_DIR = DATA_ROOT / "gian" / "detail"
+GIAN_LIST_DIR = READY_ROOT / "gian" / "list"
+GIAN_DETAIL_DIR = READY_ROOT / "gian" / "detail"
 
 app = FastAPI(
     title="kokkai-api",
-    description="配布済みの国会データ JSON を公開する API",
+    description="会期一覧と議案の配布一歩手前データを公開する API",
     version="0.1.0",
 )
 
@@ -63,7 +64,7 @@ def load_kaiki() -> KaikiDataset:
 
 @lru_cache(maxsize=256)
 def load_gian_list(session: int) -> DistributedGianListDataset:
-    """指定回次の配布用議案一覧を読み込む。"""
+    """指定回次の議案一覧 ready データを読み込む。"""
 
     return DistributedGianListDataset.model_validate_json(
         _read_json(GIAN_LIST_DIR / f"{session}.json")
@@ -72,7 +73,7 @@ def load_gian_list(session: int) -> DistributedGianListDataset:
 
 @lru_cache(maxsize=4096)
 def load_gian_detail(bill_id: str) -> DistributedGianDetailDataset:
-    """指定議案の配布用個票を読み込む。"""
+    """指定議案の ready 個票を読み込む。"""
 
     return DistributedGianDetailDataset.model_validate_json(
         _read_json(GIAN_DETAIL_DIR / f"{bill_id}.json")

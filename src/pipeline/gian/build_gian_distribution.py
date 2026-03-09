@@ -1,4 +1,4 @@
-"""配布用の議案一覧・議案個票データを生成して `data/` に保存する。
+"""議案の配布一歩手前データを生成して `tmp/ready/` に保存する。
 
 引数:
     - sessions: 対象の国会回次。省略時は `tmp/gian/list/*.json` を全件処理する
@@ -10,11 +10,11 @@
     - tmp/gian/detail/{bill_id}/honbun/documents/*.html
 
 出力:
-    - data/gian/list/{session}.json
-    - data/gian/detail/{bill_id}.json
+    - tmp/ready/gian/list/{session}.json
+    - tmp/ready/gian/detail/{bill_id}.json
 
 主な内容:
-    - 会期ごとの配布用議案一覧
+    - 会期ごとの配布一歩手前の議案一覧
     - 議案基本情報
     - 会期ごとの進捗情報配列
     - 本文文書配列
@@ -55,14 +55,14 @@ from src.utils import build_gian_bill_id, strip_name_honorific
 
 INPUT_LIST_DIR = Path("tmp/gian/list")
 DETAIL_ROOT = Path("tmp/gian/detail")
-OUTPUT_ROOT = Path("data/gian")
+OUTPUT_ROOT = Path("tmp/ready/gian")
 logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
     """コマンドライン引数から対象回次一覧を受け取る。"""
 
-    parser = argparse.ArgumentParser(description="配布用の議案データを生成する")
+    parser = argparse.ArgumentParser(description="議案の配布一歩手前データを生成する")
     parser.add_argument("sessions", nargs="*", type=int, help="対象の国会回次。省略時は全件")
     return parser.parse_args()
 
