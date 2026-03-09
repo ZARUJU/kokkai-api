@@ -153,3 +153,46 @@ class GianProgressDataset(BaseModel):
     page_title: str | None = None
     session_number: int
     parsed: GianProgressParsed
+
+
+class GianTextDocumentParsed(BaseModel):
+    """本文ページから辿れる個別文書の正規化モデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    title: str | None = None
+    document_type: str
+    note: str | None = None
+    url: AnyHttpUrl
+    local_path: str
+
+
+class GianTextParsed(BaseModel):
+    """議案本文ページ全体の正規化モデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    page_title: str | None = None
+    submit_session_label: str | None = None
+    bill_type: str | None = None
+    bill_number_label: str | None = None
+    bill_title: str | None = None
+    documents: list[GianTextDocumentParsed]
+
+
+class GianTextDataset(BaseModel):
+    """単一議案の本文情報パース結果を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bill_id: str
+    category: str
+    subcategory: str | None = None
+    submitted_session: int | None = None
+    bill_number: int | None = None
+    title: str
+    status: str | None = None
+    source_url: AnyHttpUrl
+    fetched_at: datetime
+    parsed: GianTextParsed

@@ -3,6 +3,8 @@
 import hashlib
 import re
 from datetime import date
+from pathlib import PurePosixPath
+from urllib.parse import urlparse
 
 
 ERA_OFFSETS = {
@@ -109,3 +111,12 @@ def build_gian_bill_id(
     subcategory_slug = slugify_japanese_label(subcategory or "unknown")
     title_hash = hashlib.sha1(normalize_text(title).encode("utf-8")).hexdigest()[:8]
     return f"{session_label}-{category_code}-{subcategory_slug}-{title_hash}"
+
+
+def build_text_document_filename(url: str) -> str:
+    """本文ページ配下の文書 URL から保存用ファイル名を生成する。"""
+
+    path = PurePosixPath(urlparse(url).path)
+    parent = slugify_japanese_label(path.parent.name or "document")
+    stem = slugify_japanese_label(path.stem or "item")
+    return f"{parent}_{stem}.html"

@@ -103,6 +103,42 @@ uv run python src/pipeline/get_gian_progress.py 221
 uv run python src/pipeline/parse_gian_progress.py 221
 ```
 
+### `get_gian_text.py`
+
+議案一覧 JSON を入力に、各議案の本文一覧ページと関連文書HTMLを raw で保存します。
+
+- 入力
+  `tmp/gian/list/{回次}.json`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/gian/detail/{bill_id}/text.html`
+  `tmp/gian/detail/{bill_id}/documents/*.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/get_gian_text.py 221
+```
+
+### `parse_gian_text.py`
+
+保存済みの本文一覧 HTML をパースし、型付きの整形済み JSON として保存します。
+
+- 入力
+  `tmp/gian/list/{回次}.json`
+  `tmp/gian/detail/{bill_id}/text.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/gian/detail/{bill_id}/text.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/parse_gian_text.py 221
+```
+
 ## 出力方針
 
 - JSON は UTF-8、インデント付きで保存する

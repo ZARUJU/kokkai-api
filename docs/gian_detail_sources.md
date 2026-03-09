@@ -259,7 +259,9 @@
 - `src/pipeline/parse_gian_progress.py`
   保存済み `progress.html` を読み、`progress.json` を生成する
 - `src/pipeline/get_gian_text.py`
-  一覧 JSON を入力に `text_url` を巡回し、本文メニューとそのリンク先 HTML を保存する
+  一覧 JSON を入力に `text_url` を巡回し、`text.html` と関連文書 HTML を保存する
+- `src/pipeline/parse_gian_text.py`
+  保存済み `text.html` を読み、`text.json` を生成する
 
 理由:
 
@@ -322,6 +324,8 @@
   `tmp/gian/detail/{bill_id}/{session}/progress.html`
   `tmp/gian/detail/{bill_id}/{session}/progress.json`
 - 本文
+  `tmp/gian/detail/{bill_id}/text.html`
+  `tmp/gian/detail/{bill_id}/documents/*.html`
   `tmp/gian/detail/{bill_id}/text.json`
 
 考え方:
@@ -330,6 +334,9 @@
 - `progress.json` は `progress.html` のパース結果として扱う
 - `progress` は会期ごとの差分を持ちうるため、`session` をディレクトリに含める
 - `text` は議案共通の本文メニューとして 1 ファイルに寄せる
+- `text.html` は本文一覧ページの原本として保持する
+- `documents/*.html` は提出時法律案、要綱、修正案などの原本として保持する
+- `text.json` は本文一覧ページをパースした整形済みデータとして扱う
 - 保存単位を議案 ID ベースにすると、あとから一覧データとの結合がしやすい
 
 ### 5.5 初期段階で保存したい最小単位
@@ -362,7 +369,7 @@
   - `text_url`
 - 本文一覧ページに書かれている基本情報
 - 文書リンク一覧
-- 各文書リンク先の HTML
+- 各文書リンク先のローカル保存先
 
 本文については、以下のような配列構造が扱いやすい。
 
@@ -400,7 +407,9 @@
 - 議案ごとの `bill_id` を安定して生成できる
 - `progress_url` の raw HTML を保存できる
 - `progress.html` から主テーブルと追加テーブルを JSON 化できる
-- `text_url` の文書リンク一覧と、そのリンク先 HTML を JSON 化できる
+- `text_url` の raw HTML を保存できる
+- `text.html` から文書リンク一覧を JSON 化できる
+- 文書リンク先 HTML を raw のまま保存できる
 
 その上で次段階として、
 
