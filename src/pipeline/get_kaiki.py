@@ -1,4 +1,25 @@
-"""衆議院サイトの国会会期一覧を取得して JSON に保存する。"""
+"""衆議院サイトの国会会期一覧を取得して JSON に保存する。
+
+引数:
+    なし
+
+入力:
+    - 会期一覧ページ
+      https://www.shugiin.go.jp/internet/itdb_annai.nsf/html/statics/shiryo/kaiki.htm
+
+出力:
+    - data/kaiki.json
+
+主な内容:
+    - 国会回次
+    - 会期種別
+    - 召集日
+    - 会期終了日
+    - 会期日数
+    - 当初会期
+    - 延長日数
+    - 解散などの注記
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,25 @@
-"""衆議院サイトの議案一覧を取得して JSON に保存する。"""
+"""衆議院サイトの議案一覧を取得して JSON に保存する。
+
+引数:
+    - session: 取得対象の国会回次
+
+入力:
+    - 議案一覧ページ
+      https://www.shugiin.go.jp/internet/itdb_gian.nsf/html/gian/kaiji{session}.htm
+
+出力:
+    - tmp/gian/list/{session}.json
+
+主な内容:
+    - 議案カテゴリ
+    - 決算その他の下位種類
+    - 提出回次
+    - 番号
+    - 議案件名
+    - 審議状況
+    - 経過情報 URL
+    - 本文情報 URL
+"""
 
 from __future__ import annotations
 
