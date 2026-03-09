@@ -48,7 +48,7 @@ uv sync
 実行例:
 
 ```bash
-uv run python src/pipeline/get_kaiki.py
+uv run python src/pipeline/kaiki/get_kaiki.py
 ```
 
 ### `get_gian_list.py`
@@ -65,7 +65,7 @@ uv run python src/pipeline/get_kaiki.py
 実行例:
 
 ```bash
-uv run python src/pipeline/get_gian_list.py 221
+uv run python src/pipeline/gian/get_gian_list.py 221
 ```
 
 ### `parse_gian_list.py`
@@ -82,7 +82,7 @@ uv run python src/pipeline/get_gian_list.py 221
 実行例:
 
 ```bash
-uv run python src/pipeline/parse_gian_list.py 221
+uv run python src/pipeline/gian/parse_gian_list.py 221
 ```
 
 ### `get_gian_progress.py`
@@ -99,7 +99,7 @@ uv run python src/pipeline/parse_gian_list.py 221
 実行例:
 
 ```bash
-uv run python src/pipeline/get_gian_progress.py 221
+uv run python src/pipeline/gian/get_gian_progress.py 221
 ```
 
 ### `parse_gian_progress.py`
@@ -117,7 +117,7 @@ uv run python src/pipeline/get_gian_progress.py 221
 実行例:
 
 ```bash
-uv run python src/pipeline/parse_gian_progress.py 221
+uv run python src/pipeline/gian/parse_gian_progress.py 221
 ```
 
 ### `get_gian_text.py`
@@ -135,7 +135,7 @@ uv run python src/pipeline/parse_gian_progress.py 221
 実行例:
 
 ```bash
-uv run python src/pipeline/get_gian_text.py 221
+uv run python src/pipeline/gian/get_gian_text.py 221
 ```
 
 ### `parse_gian_text.py`
@@ -153,7 +153,7 @@ uv run python src/pipeline/get_gian_text.py 221
 実行例:
 
 ```bash
-uv run python src/pipeline/parse_gian_text.py 221
+uv run python src/pipeline/gian/parse_gian_text.py 221
 ```
 
 ### `build_gian_distribution.py`
@@ -174,7 +174,7 @@ uv run python src/pipeline/parse_gian_text.py 221
 実行例:
 
 ```bash
-uv run python src/pipeline/build_gian_distribution.py 218 220 221
+uv run python src/pipeline/gian/build_gian_distribution.py 218 220 221
 ```
 
 ## API

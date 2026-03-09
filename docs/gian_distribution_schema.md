@@ -8,7 +8,7 @@
 - `data/gian/detail/{bill_id}.json`
   単一議案の個票
 
-2026-03-09 時点では、`src/pipeline/build_gian_distribution.py` がこの形式で生成する。
+2026-03-09 時点では、`src/pipeline/gian/build_gian_distribution.py` がこの形式で生成する。
 
 ## 1. ファイル構成
 

@@ -14,11 +14,11 @@
 
 現在の実装では、以下まで取得できている。
 
-- `src/pipeline/get_kaiki.py`
+- `src/pipeline/kaiki/get_kaiki.py`
   会期一覧を `data/kaiki.json` に保存
-- `src/pipeline/get_gian_list.py`
+- `src/pipeline/gian/get_gian_list.py`
   各会期の議案一覧 raw HTML を `tmp/gian/list/{session}.html` に保存
-- `src/pipeline/parse_gian_list.py`
+- `src/pipeline/gian/parse_gian_list.py`
   各会期の議案一覧を `tmp/gian/list/{session}.json` に保存
 
 次の詳細取得は、基本的に `tmp/gian/list/{session}.json` を入力にして進めるのが自然である。
@@ -256,13 +256,13 @@
 
 推奨:
 
-- `src/pipeline/get_gian_progress.py`
+- `src/pipeline/gian/get_gian_progress.py`
   一覧 JSON を入力に `progress_url` を巡回し、`progress/{session}.html` を保存する
-- `src/pipeline/parse_gian_progress.py`
+- `src/pipeline/gian/parse_gian_progress.py`
   保存済み `progress/{session}.html` を読み、`progress/{session}.json` を生成する
-- `src/pipeline/get_gian_text.py`
+- `src/pipeline/gian/get_gian_text.py`
   一覧 JSON を入力に `text_url` を巡回し、`honbun/index.html` と関連文書 HTML を保存する
-- `src/pipeline/parse_gian_text.py`
+- `src/pipeline/gian/parse_gian_text.py`
   保存済み `honbun/index.html` を読み、`honbun/index.json` を生成する
 
 理由:
