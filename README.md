@@ -18,7 +18,7 @@
 - `src/utils.py`
   文字列正規化や日付変換など、パイプライン共通の補助関数を置く
 - `docs`
-  取得元サイトの構造整理や、今後の実装方針に関するドキュメントを置く
+  取得元サイトの構造整理、配布データ仕様、今後の実装方針に関するドキュメントを置く
 - `data`
   配布対象の整形済みデータを置く
 - `tmp`
@@ -155,6 +155,46 @@ uv run python src/pipeline/get_gian_text.py 221
 ```bash
 uv run python src/pipeline/parse_gian_text.py 221
 ```
+
+### `build_gian_distribution.py`
+
+保存済みの議案一覧・進捗・本文データから、配布用の議案一覧 JSON と議案個票 JSON を `data/` に生成します。
+
+- 入力
+  `tmp/gian/list/{回次}.json`
+  `tmp/gian/detail/{bill_id}/progress/{回次}.json`
+  `tmp/gian/detail/{bill_id}/honbun/index.html`
+  `tmp/gian/detail/{bill_id}/honbun/documents/*.html`
+- 引数
+  `sessions...`: 対象の国会回次。省略時は `tmp/gian/list/*.json` を全件処理
+- 出力
+  `data/gian/list/{回次}.json`
+  `data/gian/detail/{bill_id}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/build_gian_distribution.py 218 220 221
+```
+
+## API
+
+配布済み JSON を FastAPI で配信できます。
+
+起動例:
+
+```bash
+uv run api.py
+```
+
+主なエンドポイント:
+
+- `GET /health`
+- `GET /kaiki`
+- `GET /gian/list`
+- `GET /gian/list/{session}`
+- `GET /gian/detail`
+- `GET /gian/detail/{bill_id}`
 
 ## 出力方針
 
