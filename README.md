@@ -35,6 +35,23 @@ Python 3.11 以上を前提としています。
 uv sync
 ```
 
+## 一括実行 CLI
+
+回次をまとめて処理する入口として `cli.py` を用意しています。
+
+- 引数なし
+  会期一覧を更新した上で、最新2回分を強制更新しながら取得・整形・`tmp/ready/` 生成まで実行
+- 引数あり
+  指定回次だけ処理。既定では取得済み raw データを再利用し、`--force` 指定時のみ再取得
+
+実行例:
+
+```bash
+uv run python cli.py
+uv run python cli.py 220 221
+uv run python cli.py 220 221 --force
+```
+
 ## パイプライン
 
 ### `get_kaiki.py`
@@ -44,14 +61,14 @@ uv sync
 - 入力
   衆議院サイトの会期一覧ページ `https://www.shugiin.go.jp/internet/itdb_annai.nsf/html/statics/shiryo/kaiki.htm`
 - 引数
-  なし
+  `--skip-existing`: `data/kaiki.json` が既にある場合は取得をスキップ
 - 出力
   `data/kaiki.json`
 
 実行例:
 
 ```bash
-uv run python src/pipeline/kaiki/get_kaiki.py
+uv run python src/pipeline/kaiki/get_kaiki.py --skip-existing
 ```
 
 ### `get_gian_list.py`
@@ -62,13 +79,14 @@ uv run python src/pipeline/kaiki/get_kaiki.py
   `https://www.shugiin.go.jp/internet/itdb_gian.nsf/html/gian/kaiji{回次}.htm`
 - 引数
   `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/gian/list/{回次}.html` が既にある場合は取得をスキップ
 - 出力
   `tmp/gian/list/{回次}.html`
 
 実行例:
 
 ```bash
-uv run python src/pipeline/gian/get_gian_list.py 221
+uv run python src/pipeline/gian/get_gian_list.py 221 --skip-existing
 ```
 
 ### `parse_gian_list.py`
@@ -96,13 +114,14 @@ uv run python src/pipeline/gian/parse_gian_list.py 221
   `tmp/gian/list/{回次}.json`
 - 引数
   `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/gian/detail/{bill_id}/progress/{回次}.html` が既にある場合は取得をスキップ
 - 出力
   `tmp/gian/detail/{bill_id}/progress/{回次}.html`
 
 実行例:
 
 ```bash
-uv run python src/pipeline/gian/get_gian_progress.py 221
+uv run python src/pipeline/gian/get_gian_progress.py 221 --skip-existing
 ```
 
 ### `parse_gian_progress.py`
@@ -131,6 +150,7 @@ uv run python src/pipeline/gian/parse_gian_progress.py 221
   `tmp/gian/list/{回次}.json`
 - 引数
   `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/gian/detail/{bill_id}/honbun/` 配下の既存HTML取得をスキップ
 - 出力
   `tmp/gian/detail/{bill_id}/honbun/index.html`
   `tmp/gian/detail/{bill_id}/honbun/documents/*.html`
@@ -138,7 +158,7 @@ uv run python src/pipeline/gian/parse_gian_progress.py 221
 実行例:
 
 ```bash
-uv run python src/pipeline/gian/get_gian_text.py 221
+uv run python src/pipeline/gian/get_gian_text.py 221 --skip-existing
 ```
 
 ### `parse_gian_text.py`
@@ -190,13 +210,14 @@ uv run python src/pipeline/gian/build_gian_distribution.py 218 220 221
   `https://www.shugiin.go.jp/internet/itdb_shitsumona.nsf/html/shitsumon/kaiji{回次3桁}_l.htm`
 - 引数
   `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/shitsumon/shugiin/list/{回次}.html` が既にある場合は取得をスキップ
 - 出力
   `tmp/shitsumon/shugiin/list/{回次}.html`
 
 実行例:
 
 ```bash
-uv run python src/pipeline/shitsumon/get_shugiin_shitsumon_list.py 221
+uv run python src/pipeline/shitsumon/get_shugiin_shitsumon_list.py 221 --skip-existing
 ```
 
 ### `parse_shugiin_shitsumon_list.py`
@@ -224,6 +245,7 @@ uv run python src/pipeline/shitsumon/parse_shugiin_shitsumon_list.py 221
   `tmp/shitsumon/shugiin/list/{回次}.json`
 - 引数
   `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/shitsumon/shugiin/detail/{question_id}/*.html` が既にある場合は取得をスキップ
 - 出力
   `tmp/shitsumon/shugiin/detail/{question_id}/progress.html`
   `tmp/shitsumon/shugiin/detail/{question_id}/question.html`
@@ -232,7 +254,7 @@ uv run python src/pipeline/shitsumon/parse_shugiin_shitsumon_list.py 221
 実行例:
 
 ```bash
-uv run python src/pipeline/shitsumon/get_shugiin_shitsumon_detail.py 221
+uv run python src/pipeline/shitsumon/get_shugiin_shitsumon_detail.py 221 --skip-existing
 ```
 
 ### `parse_shugiin_shitsumon_detail.py`
@@ -263,13 +285,14 @@ uv run python src/pipeline/shitsumon/parse_shugiin_shitsumon_detail.py 221
   `https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/{回次}/syuisyo.htm`
 - 引数
   `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/shitsumon/sangiin/list/{回次}.html` が既にある場合は取得をスキップ
 - 出力
   `tmp/shitsumon/sangiin/list/{回次}.html`
 
 実行例:
 
 ```bash
-uv run python src/pipeline/shitsumon/get_sangiin_shitsumon_list.py 218
+uv run python src/pipeline/shitsumon/get_sangiin_shitsumon_list.py 218 --skip-existing
 ```
 
 ### `parse_sangiin_shitsumon_list.py`
@@ -297,6 +320,7 @@ uv run python src/pipeline/shitsumon/parse_sangiin_shitsumon_list.py 218
   `tmp/shitsumon/sangiin/list/{回次}.json`
 - 引数
   `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/shitsumon/sangiin/detail/{question_id}/*.html` が既にある場合は取得をスキップ
 - 出力
   `tmp/shitsumon/sangiin/detail/{question_id}/detail.html`
   `tmp/shitsumon/sangiin/detail/{question_id}/question.html`
@@ -305,7 +329,7 @@ uv run python src/pipeline/shitsumon/parse_sangiin_shitsumon_list.py 218
 実行例:
 
 ```bash
-uv run python src/pipeline/shitsumon/get_sangiin_shitsumon_detail.py 218
+uv run python src/pipeline/shitsumon/get_sangiin_shitsumon_detail.py 218 --skip-existing
 ```
 
 ### `parse_sangiin_shitsumon_detail.py`

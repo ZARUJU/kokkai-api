@@ -3,7 +3,7 @@
 import hashlib
 import re
 from datetime import date
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 
@@ -196,3 +196,9 @@ def build_text_document_filename(url: str) -> str:
     parent = slugify_japanese_label(path.parent.name or "document")
     stem = slugify_japanese_label(path.stem or "item")
     return f"{parent}_{stem}.html"
+
+
+def should_skip_existing(path: Path, skip_existing: bool) -> bool:
+    """`--skip-existing` 指定時に既存ファイルをスキップするか判定する。"""
+
+    return skip_existing and path.exists()

@@ -2,6 +2,7 @@
 
 引数:
     - session: 取得対象の国会回次
+    - --skip-existing: 保存先HTMLが既にある場合は取得をスキップ
 
 入力:
     - tmp/gian/list/{session}.json
@@ -29,7 +30,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import GianListDataset
-from src.utils import build_gian_bill_id
+from src.utils import build_gian_bill_id, should_skip_existing
 
 INPUT_DIR = Path("tmp/gian/list")
 OUTPUT_ROOT = Path("tmp/gian/detail")
@@ -44,6 +45,11 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(description="指定した回次の議案進捗情報を取得する")
     parser.add_argument("session", type=int, help="取得対象の国会回次")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="保存先HTMLが既にある場合は取得をスキップする",
+    )
     return parser.parse_args()
 
 
@@ -77,7 +83,7 @@ def save_progress_html(
     return output_path
 
 
-def process_session(session: int) -> list[Path]:
+def process_session(session: int, skip_existing: bool = False) -> list[Path]:
     """指定回次の進捗ページ raw HTML を一括取得して保存する。"""
 
     gian_list = load_gian_list(session)
@@ -87,7 +93,6 @@ def process_session(session: int) -> list[Path]:
         if item.progress_url is None:
             logger.info("スキップ: progress_urlなし title=%s", item.title)
             continue
-        html = fetch_html(str(item.progress_url))
         bill_id = build_gian_bill_id(
             category=item.category,
             submitted_session=item.submitted_session,
@@ -95,6 +100,12 @@ def process_session(session: int) -> list[Path]:
             title=item.title,
             subcategory=item.subcategory,
         )
+        output_path = OUTPUT_ROOT / bill_id / "progress" / f"{session}.html"
+        if should_skip_existing(output_path, skip_existing):
+            logger.info("スキップ: 既存ファイルあり bill_id=%s path=%s", bill_id, output_path)
+            saved_paths.append(output_path)
+            continue
+        html = fetch_html(str(item.progress_url))
         output_path = save_progress_html(bill_id=bill_id, session=session, html=html)
         logger.info("保存: bill_id=%s path=%s", bill_id, output_path)
         saved_paths.append(output_path)
@@ -110,7 +121,7 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(message)s",
     )
     args = parse_args()
-    process_session(args.session)
+    process_session(args.session, skip_existing=args.skip_existing)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 
 引数:
     - session: 取得対象の国会回次
+    - --skip-existing: 保存先HTMLが既にある場合は取得をスキップ
 
 入力:
     - tmp/gian/list/{session}.json
@@ -28,7 +29,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import GianListDataset
-from src.utils import build_gian_bill_id, build_text_document_filename
+from src.utils import build_gian_bill_id, build_text_document_filename, should_skip_existing
 
 INPUT_DIR = Path("tmp/gian/list")
 DETAIL_ROOT = Path("tmp/gian/detail")
@@ -43,6 +44,11 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(description="指定した回次の議案本文情報を取得する")
     parser.add_argument("session", type=int, help="取得対象の国会回次")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="保存先HTMLが既にある場合は取得をスキップする",
+    )
     return parser.parse_args()
 
 
@@ -94,7 +100,7 @@ def save_document_html(bill_id: str, url: str, html: str, detail_root: Path = DE
     return output_path
 
 
-def process_session(session: int) -> list[Path]:
+def process_session(session: int, skip_existing: bool = False) -> list[Path]:
     """指定回次の本文ページと関連文書 HTML を取得して保存する。"""
 
     gian_list = load_gian_list(session)
@@ -113,12 +119,24 @@ def process_session(session: int) -> list[Path]:
             subcategory=item.subcategory,
         )
 
-        text_html = fetch_html(str(item.text_url))
-        text_path = save_text_html(bill_id=bill_id, html=text_html)
-        saved_paths.append(text_path)
-        logger.info("保存: bill_id=%s path=%s", bill_id, text_path)
+        text_path = DETAIL_ROOT / bill_id / "honbun" / "index.html"
+        if should_skip_existing(text_path, skip_existing):
+            text_html = text_path.read_text(encoding="utf-8")
+            logger.info("スキップ: 既存ファイルあり bill_id=%s path=%s", bill_id, text_path)
+            saved_paths.append(text_path)
+        else:
+            text_html = fetch_html(str(item.text_url))
+            text_path = save_text_html(bill_id=bill_id, html=text_html)
+            saved_paths.append(text_path)
+            logger.info("保存: bill_id=%s path=%s", bill_id, text_path)
 
         for document_url in extract_document_urls(text_html, str(item.text_url)):
+            filename = build_text_document_filename(document_url)
+            document_path = DETAIL_ROOT / bill_id / "honbun" / "documents" / filename
+            if should_skip_existing(document_path, skip_existing):
+                logger.info("スキップ: 既存ファイルあり bill_id=%s path=%s", bill_id, document_path)
+                saved_paths.append(document_path)
+                continue
             document_html = fetch_html(document_url)
             document_path = save_document_html(bill_id=bill_id, url=document_url, html=document_html)
             saved_paths.append(document_path)
@@ -133,7 +151,7 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args()
-    process_session(args.session)
+    process_session(args.session, skip_existing=args.skip_existing)
 
 
 if __name__ == "__main__":

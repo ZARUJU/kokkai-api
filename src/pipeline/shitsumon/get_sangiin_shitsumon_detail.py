@@ -2,6 +2,7 @@
 
 引数:
     - session: 取得対象の国会回次
+    - --skip-existing: 保存先HTMLが既にある場合は取得をスキップ
 
 入力:
     - tmp/shitsumon/sangiin/list/{session}.json
@@ -29,7 +30,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import SangiinShitsumonListDataset
-from src.utils import build_sangiin_shitsumon_id
+from src.utils import build_sangiin_shitsumon_id, should_skip_existing
 
 INPUT_DIR = Path("tmp/shitsumon/sangiin/list")
 DETAIL_ROOT = Path("tmp/shitsumon/sangiin/detail")
@@ -44,6 +45,11 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(description="指定した回次の参議院質問主意書個別ページを取得する")
     parser.add_argument("session", type=int, help="取得対象の国会回次")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="保存先HTMLが既にある場合は取得をスキップする",
+    )
     return parser.parse_args()
 
 
@@ -72,7 +78,7 @@ def save_detail_html(question_id: str, kind: str, html: str, detail_root: Path =
     return output_path
 
 
-def process_session(session: int) -> list[Path]:
+def process_session(session: int, skip_existing: bool = False) -> list[Path]:
     """指定回次の個別ページ raw HTML を一括取得して保存する。"""
 
     shitsumon_list = load_shitsumon_list(session)
@@ -89,6 +95,11 @@ def process_session(session: int) -> list[Path]:
             if url is None:
                 logger.info("スキップ: urlなし question_id=%s kind=%s", question_id, kind)
                 continue
+            output_path = DETAIL_ROOT / question_id / f"{kind}.html"
+            if should_skip_existing(output_path, skip_existing):
+                logger.info("スキップ: 既存ファイルあり question_id=%s kind=%s path=%s", question_id, kind, output_path)
+                saved_paths.append(output_path)
+                continue
             html = fetch_html(str(url))
             output_path = save_detail_html(question_id=question_id, kind=kind, html=html)
             logger.info("保存: question_id=%s kind=%s path=%s", question_id, kind, output_path)
@@ -102,7 +113,7 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args()
-    process_session(args.session)
+    process_session(args.session, skip_existing=args.skip_existing)
 
 
 if __name__ == "__main__":

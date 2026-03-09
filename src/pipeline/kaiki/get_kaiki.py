@@ -1,7 +1,7 @@
 """衆議院サイトの国会会期一覧を取得して JSON に保存する。
 
 引数:
-    なし
+    - --skip-existing: 保存先JSONが既にある場合は取得をスキップ
 
 入力:
     - 会期一覧ページ
@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -37,13 +38,25 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import Kaiki, KaikiDataset
-from src.utils import normalize_text, parse_int, parse_japanese_date
+from src.utils import normalize_text, parse_int, parse_japanese_date, should_skip_existing
 
 SOURCE_URL = "https://www.shugiin.go.jp/internet/itdb_annai.nsf/html/statics/shiryo/kaiki.htm"
 OUTPUT_PATH = Path("data/kaiki.json")
 REQUEST_HEADERS = {
     "User-Agent": "kokkai-api/0.1 (+https://www.shugiin.go.jp/)",
 }
+
+
+def parse_args() -> argparse.Namespace:
+    """コマンドライン引数を受け取る。"""
+
+    parser = argparse.ArgumentParser(description="国会会期一覧を取得して JSON として保存する")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="保存先JSONが既にある場合は取得をスキップする",
+    )
+    return parser.parse_args()
 
 
 def fetch_html(url: str = SOURCE_URL) -> str:
@@ -246,6 +259,10 @@ def save_dataset(dataset: KaikiDataset, output_path: Path = OUTPUT_PATH) -> None
 
 def main() -> None:
     """会期一覧の取得から保存までを実行する。"""
+
+    args = parse_args()
+    if should_skip_existing(OUTPUT_PATH, args.skip_existing):
+        return
 
     html = fetch_html()
     dataset = build_dataset(html)

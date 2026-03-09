@@ -2,6 +2,7 @@
 
 引数:
     - session: 取得対象の国会回次
+    - --skip-existing: 保存先HTMLが既にある場合は取得をスキップ
 
 入力:
     - 質問主意書一覧ページ
@@ -28,6 +29,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.utils import should_skip_existing
+
 SOURCE_URL_TEMPLATES = (
     "https://www.shugiin.go.jp/internet/itdb_shitsumon.nsf/html/shitsumon/kaiji{session:03d}_l.htm",
     "https://www.shugiin.go.jp/internet/itdb_shitsumona.nsf/html/shitsumon/kaiji{session:03d}_l.htm",
@@ -44,6 +47,11 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(description="指定した回次の衆議院質問主意書一覧HTMLを取得する")
     parser.add_argument("session", type=int, help="取得対象の国会回次")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="保存先HTMLが既にある場合は取得をスキップする",
+    )
     return parser.parse_args()
 
 
@@ -87,8 +95,13 @@ def save_html(session: int, html: str, output_dir: Path = OUTPUT_DIR) -> Path:
     return output_path
 
 
-def process_session(session: int, output_dir: Path = OUTPUT_DIR) -> Path:
+def process_session(session: int, output_dir: Path = OUTPUT_DIR, skip_existing: bool = False) -> Path:
     """指定回次の質問主意書一覧ページ raw HTML を取得して保存する。"""
+
+    output_path = output_dir / f"{session}.html"
+    if should_skip_existing(output_path, skip_existing):
+        logger.info("スキップ: 既存ファイルあり session=%s path=%s", session, output_path)
+        return output_path
 
     logger.info("質問主意書一覧HTML取得開始: session=%s", session)
     html, source_url = fetch_first_available_html(session)
@@ -103,7 +116,7 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args()
-    process_session(args.session)
+    process_session(args.session, skip_existing=args.skip_existing)
 
 
 if __name__ == "__main__":
