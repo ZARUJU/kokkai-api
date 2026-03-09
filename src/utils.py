@@ -1,5 +1,6 @@
 """文字列整形や日付変換に関する補助関数。"""
 
+import hashlib
 import re
 from datetime import date
 
@@ -13,6 +14,15 @@ ERA_OFFSETS = {
 }
 
 EMPTY_VALUES = {"", "-", "－", "―", "未定", "なし", "無し"}
+GIAN_CATEGORY_CODES = {
+    "衆法": "shu_law",
+    "参法": "san_law",
+    "閣法": "cab_law",
+    "予算": "budget",
+    "承認": "approval",
+    "決算その他": "settlement",
+    "決算": "settlement",
+}
 
 
 def normalize_text(value: str) -> str:
@@ -39,7 +49,7 @@ def parse_japanese_date(value: str) -> date | None:
     if text in EMPTY_VALUES:
         return None
 
-    western = re.search(r"(?P<year>\d{4})年(?P<month>\d{1,2})月(?P<day>\d{1,2})日", text)
+    western = re.search(r"(?P<year>\d{4})\s*年\s*(?P<month>\d{1,2})\s*月\s*(?P<day>\d{1,2})\s*日", text)
     if western:
         return date(
             int(western.group("year")),
@@ -48,7 +58,7 @@ def parse_japanese_date(value: str) -> date | None:
         )
 
     era = re.search(
-        r"(?P<era>明治|大正|昭和|平成|令和)(?P<year>元|\d+)年(?P<month>\d{1,2})月(?P<day>\d{1,2})日",
+        r"(?P<era>明治|大正|昭和|平成|令和)\s*(?P<year>元|\d+)\s*年\s*(?P<month>\d{1,2})\s*月\s*(?P<day>\d{1,2})\s*日",
         text,
     )
     if not era:
@@ -57,3 +67,45 @@ def parse_japanese_date(value: str) -> date | None:
     era_year = 1 if era.group("year") == "元" else int(era.group("year"))
     year = ERA_OFFSETS[era.group("era")] + era_year
     return date(year, int(era.group("month")), int(era.group("day")))
+
+
+def slugify_japanese_label(value: str) -> str:
+    """日本語ラベルを保存パス向けの簡易 slug に変換する。"""
+
+    text = normalize_text(value).lower()
+    replacements = {
+        "決算": "kessan",
+        "国有財産": "kokuyu_zaisan",
+        "国庫債務": "kokko_saimu",
+        "ｎｈｋ決算": "nhk_kessan",
+        "nhk決算": "nhk_kessan",
+    }
+    if text in replacements:
+        return replacements[text]
+
+    ascii_text = re.sub(r"[^a-z0-9]+", "_", text)
+    ascii_text = ascii_text.strip("_")
+    if ascii_text:
+        return ascii_text
+
+    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:8]
+    return f"label_{digest}"
+
+
+def build_gian_bill_id(
+    category: str,
+    submitted_session: int | None,
+    bill_number: int | None,
+    title: str,
+    subcategory: str | None = None,
+) -> str:
+    """議案一覧の1件から安定した議案 ID を生成する。"""
+
+    category_code = GIAN_CATEGORY_CODES.get(category, slugify_japanese_label(category))
+    session_label = str(submitted_session) if submitted_session is not None else "unknown"
+    if bill_number is not None:
+        return f"{session_label}-{category_code}-{bill_number}"
+
+    subcategory_slug = slugify_japanese_label(subcategory or "unknown")
+    title_hash = hashlib.sha1(normalize_text(title).encode("utf-8")).hexdigest()[:8]
+    return f"{session_label}-{category_code}-{subcategory_slug}-{title_hash}"

@@ -17,6 +17,8 @@
   各パイプラインの出力 JSON に対応する Pydantic モデルを定義する
 - `src/utils.py`
   文字列正規化や日付変換など、パイプライン共通の補助関数を置く
+- `docs`
+  取得元サイトの構造整理や、今後の実装方針に関するドキュメントを置く
 - `data`
   配布対象の整形済みデータを置く
 - `tmp`
@@ -64,6 +66,41 @@ uv run python src/pipeline/get_kaiki.py
 
 ```bash
 uv run python src/pipeline/get_gian_list.py 221
+```
+
+### `get_gian_progress.py`
+
+議案一覧 JSON を入力に、各議案の審議経過ページを取得して raw HTML を保存します。
+
+- 入力
+  `tmp/gian/list/{回次}.json`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/gian/detail/{bill_id}/{回次}/progress.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/get_gian_progress.py 221
+```
+
+### `parse_gian_progress.py`
+
+保存済みの進捗 HTML をパースし、型付きの整形済み JSON として保存します。
+
+- 入力
+  `tmp/gian/list/{回次}.json`
+  `tmp/gian/detail/{bill_id}/{回次}/progress.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/gian/detail/{bill_id}/{回次}/progress.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/parse_gian_progress.py 221
 ```
 
 ## 出力方針
