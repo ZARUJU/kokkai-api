@@ -8,7 +8,7 @@
 - `text_url`
   議案本文情報一覧ページ
 
-2026-03-09 時点で、既存の `tmp/gian/list/{session}.json` と実サイトの代表ページを確認した内容をまとめている。
+2026-03-09 時点で、`tmp/gian/list/{session}.html` と `tmp/gian/list/{session}.json`、および実サイトの代表ページを確認した内容をまとめている。
 
 ## 1. 既存パイプラインとの関係
 
@@ -17,6 +17,8 @@
 - `src/pipeline/get_kaiki.py`
   会期一覧を `data/kaiki.json` に保存
 - `src/pipeline/get_gian_list.py`
+  各会期の議案一覧 raw HTML を `tmp/gian/list/{session}.html` に保存
+- `src/pipeline/parse_gian_list.py`
   各会期の議案一覧を `tmp/gian/list/{session}.json` に保存
 
 次の詳細取得は、基本的に `tmp/gian/list/{session}.json` を入力にして進めるのが自然である。

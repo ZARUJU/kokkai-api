@@ -53,10 +53,27 @@ uv run python src/pipeline/get_kaiki.py
 
 ### `get_gian_list.py`
 
-衆議院サイトの「議案の一覧」から、指定した国会回次の議案一覧を取得し、カテゴリ情報つきの JSON として保存します。
+衆議院サイトの「議案の一覧」から、指定した国会回次の raw HTML を取得して保存します。
 
 - 入力
   `https://www.shugiin.go.jp/internet/itdb_gian.nsf/html/gian/kaiji{回次}.htm`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/gian/list/{回次}.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/get_gian_list.py 221
+```
+
+### `parse_gian_list.py`
+
+保存済みの議案一覧 HTML をパースし、カテゴリ情報つきの JSON として保存します。
+
+- 入力
+  `tmp/gian/list/{回次}.html`
 - 引数
   `session`: 取得対象の国会回次
 - 出力
@@ -65,7 +82,7 @@ uv run python src/pipeline/get_kaiki.py
 実行例:
 
 ```bash
-uv run python src/pipeline/get_gian_list.py 221
+uv run python src/pipeline/parse_gian_list.py 221
 ```
 
 ### `get_gian_progress.py`
