@@ -180,6 +180,174 @@ uv run python src/pipeline/gian/parse_gian_text.py 221
 uv run python src/pipeline/gian/build_gian_distribution.py 218 220 221
 ```
 
+### `get_shugiin_shitsumon_list.py`
+
+衆議院サイトの「質問主意書一覧」から、指定した国会回次の raw HTML を取得して保存します。
+回次によって `itdb_shitsumon` と `itdb_shitsumona` のどちらかが使われるため、候補 URL を順に試します。
+
+- 入力
+  `https://www.shugiin.go.jp/internet/itdb_shitsumon.nsf/html/shitsumon/kaiji{回次3桁}_l.htm`
+  `https://www.shugiin.go.jp/internet/itdb_shitsumona.nsf/html/shitsumon/kaiji{回次3桁}_l.htm`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/shitsumon/shugiin/list/{回次}.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/shitsumon/get_shugiin_shitsumon_list.py 221
+```
+
+### `parse_shugiin_shitsumon_list.py`
+
+保存済みの衆議院質問主意書一覧 HTML をパースし、型付き JSON として保存します。
+
+- 入力
+  `tmp/shitsumon/shugiin/list/{回次}.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/shitsumon/shugiin/list/{回次}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/shitsumon/parse_shugiin_shitsumon_list.py 221
+```
+
+### `get_shugiin_shitsumon_detail.py`
+
+質問主意書一覧 JSON を入力に、各質問主意書の経過ページ・質問本文ページ・答弁本文ページの raw HTML を保存します。
+
+- 入力
+  `tmp/shitsumon/shugiin/list/{回次}.json`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/shitsumon/shugiin/detail/{question_id}/progress.html`
+  `tmp/shitsumon/shugiin/detail/{question_id}/question.html`
+  `tmp/shitsumon/shugiin/detail/{question_id}/answer.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/shitsumon/get_shugiin_shitsumon_detail.py 221
+```
+
+### `parse_shugiin_shitsumon_detail.py`
+
+保存済みの衆議院質問主意書個別 HTML をパースし、個票 JSON として保存します。
+
+- 入力
+  `tmp/shitsumon/shugiin/list/{回次}.json`
+  `tmp/shitsumon/shugiin/detail/{question_id}/progress.html`
+  `tmp/shitsumon/shugiin/detail/{question_id}/question.html`
+  `tmp/shitsumon/shugiin/detail/{question_id}/answer.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/shitsumon/shugiin/detail/{question_id}/index.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/shitsumon/parse_shugiin_shitsumon_detail.py 221
+```
+
+### `get_sangiin_shitsumon_list.py`
+
+参議院サイトの「質問主意書・答弁書一覧」から、指定した国会回次の raw HTML を取得して保存します。
+
+- 入力
+  `https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/{回次}/syuisyo.htm`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/shitsumon/sangiin/list/{回次}.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/shitsumon/get_sangiin_shitsumon_list.py 218
+```
+
+### `parse_sangiin_shitsumon_list.py`
+
+保存済みの参議院質問主意書一覧 HTML をパースし、一覧 JSON として保存します。
+
+- 入力
+  `tmp/shitsumon/sangiin/list/{回次}.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/shitsumon/sangiin/list/{回次}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/shitsumon/parse_sangiin_shitsumon_list.py 218
+```
+
+### `get_sangiin_shitsumon_detail.py`
+
+参議院質問主意書一覧 JSON を入力に、各質問主意書の詳細ページ・質問本文ページ・答弁本文ページの raw HTML を保存します。
+
+- 入力
+  `tmp/shitsumon/sangiin/list/{回次}.json`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/shitsumon/sangiin/detail/{question_id}/detail.html`
+  `tmp/shitsumon/sangiin/detail/{question_id}/question.html`
+  `tmp/shitsumon/sangiin/detail/{question_id}/answer.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/shitsumon/get_sangiin_shitsumon_detail.py 218
+```
+
+### `parse_sangiin_shitsumon_detail.py`
+
+保存済みの参議院質問主意書個別 HTML をパースし、衆議院側と同じ最終形の個票 JSON として保存します。
+
+- 入力
+  `tmp/shitsumon/sangiin/list/{回次}.json`
+  `tmp/shitsumon/sangiin/detail/{question_id}/detail.html`
+  `tmp/shitsumon/sangiin/detail/{question_id}/question.html`
+  `tmp/shitsumon/sangiin/detail/{question_id}/answer.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/shitsumon/sangiin/detail/{question_id}/index.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/shitsumon/parse_sangiin_shitsumon_detail.py 218
+```
+
+### `build_shitsumon_distribution.py`
+
+保存済みの衆参質問主意書一覧・個票 JSON を、そのまま配布一歩手前データとして `tmp/ready/` に保存します。
+
+- 入力
+  `tmp/shitsumon/{house}/list/{回次}.json`
+  `tmp/shitsumon/{house}/detail/{question_id}/index.json`
+- 引数
+  `sessions...`: 対象の国会回次。省略時は保存済み一覧 JSON を全件処理
+  `--house`: `shugiin` `sangiin` `all`。既定値は `all`
+- 出力
+  `tmp/ready/shitsumon/{house}/list/{回次}.json`
+  `tmp/ready/shitsumon/{house}/detail/{question_id}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/shitsumon/build_shitsumon_distribution.py --house all 218 221
+```
+
 ## API
 
 会期一覧と、議案の配布一歩手前 JSON を FastAPI で配信できます。

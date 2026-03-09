@@ -32,6 +32,118 @@ class KaikiDataset(BaseModel):
     items: list[Kaiki]
 
 
+class ShugiinShitsumonItem(BaseModel):
+    """衆議院の質問主意書一覧1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    question_number: int
+    title: str
+    submitter_name: str | None = None
+    status: str | None = None
+    progress_url: AnyHttpUrl | None = None
+    question_html_url: AnyHttpUrl | None = None
+    question_pdf_url: AnyHttpUrl | None = None
+    answer_html_url: AnyHttpUrl | None = None
+    answer_pdf_url: AnyHttpUrl | None = None
+
+
+class ShugiinShitsumonListDataset(BaseModel):
+    """衆議院の回次別質問主意書一覧取得結果全体を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_url: AnyHttpUrl
+    source_series: str
+    fetched_at: datetime
+    session_number: int
+    items: list[ShugiinShitsumonItem]
+
+
+class SangiinShitsumonItem(BaseModel):
+    """参議院の質問主意書一覧1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    question_number: int
+    title: str
+    submitter_name: str | None = None
+    detail_url: AnyHttpUrl | None = None
+    question_html_url: AnyHttpUrl | None = None
+    question_pdf_url: AnyHttpUrl | None = None
+    answer_html_url: AnyHttpUrl | None = None
+    answer_pdf_url: AnyHttpUrl | None = None
+
+
+class SangiinShitsumonListDataset(BaseModel):
+    """参議院の回次別質問主意書一覧取得結果全体を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_url: AnyHttpUrl
+    fetched_at: datetime
+    session_number: int
+    session_label: str | None = None
+    items: list[SangiinShitsumonItem]
+
+
+class SangiinShitsumonDetailDataset(BaseModel):
+    """参議院質問主意書個票のパース結果を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    question_id: str
+    source_url: AnyHttpUrl
+    fetched_at: datetime
+    title: str
+    submitter_name: str | None = None
+    progress: ShugiinShitsumonProgressParsed | None = None
+    question_document: ShugiinShitsumonDocumentParsed | None = None
+    answer_document: ShugiinShitsumonDocumentParsed | None = None
+
+
+class ShugiinShitsumonProgressParsed(BaseModel):
+    """衆議院質問主意書の経過情報を正規化したモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_type: str | None = None
+    group_name: str | None = None
+    submitted_at: date | None = None
+    cabinet_sent_at: date | None = None
+    answer_delay_notice_received_at: date | None = None
+    answer_due_at: date | None = None
+    answer_received_at: date | None = None
+    withdrawn_at: date | None = None
+    withdrawal_notice_at: date | None = None
+    status: str | None = None
+
+
+class ShugiinShitsumonDocumentParsed(BaseModel):
+    """質問本文または答弁本文の抽出結果を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    document_date: date | None = None
+    answerer_name: str | None = None
+    body_text: str | None = None
+
+
+class ShugiinShitsumonDetailDataset(BaseModel):
+    """衆議院質問主意書個票のパース結果を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    question_id: str
+    source_url: AnyHttpUrl
+    fetched_at: datetime
+    title: str
+    submitter_name: str | None = None
+    progress: ShugiinShitsumonProgressParsed | None = None
+    question_document: ShugiinShitsumonDocumentParsed | None = None
+    answer_document: ShugiinShitsumonDocumentParsed | None = None
+
+
 class GianItem(BaseModel):
     """単一の議案一覧行を表すモデル。"""
 

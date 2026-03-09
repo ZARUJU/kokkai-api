@@ -25,6 +25,36 @@ GIAN_CATEGORY_CODES = {
     "決算その他": "settlement",
     "決算": "settlement",
 }
+KANJI_DIGITS = {
+    "〇": 0,
+    "零": 0,
+    "一": 1,
+    "二": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+}
+KANJI_UNITS = {
+    "十": 10,
+    "百": 100,
+    "千": 1000,
+}
+
+
+def build_shugiin_shitsumon_id(session_number: int, question_number: int) -> str:
+    """衆議院質問主意書の安定した ID を生成する。"""
+
+    return f"shu-{session_number}-{question_number:03d}"
+
+
+def build_sangiin_shitsumon_id(session_number: int, question_number: int) -> str:
+    """参議院質問主意書の安定した ID を生成する。"""
+
+    return f"san-{session_number}-{question_number:03d}"
 
 
 def normalize_text(value: str) -> str:
@@ -53,6 +83,34 @@ def parse_int(value: str) -> int | None:
     return int(match.group())
 
 
+def parse_japanese_number(value: str) -> int | None:
+    """漢数字または算用数字を整数に変換する。"""
+
+    text = normalize_text(value)
+    if not text:
+        return None
+    if re.fullmatch(r"\d+", text):
+        return int(text)
+    if text == "元":
+        return 1
+    if all(char in KANJI_DIGITS for char in text):
+        return int("".join(str(KANJI_DIGITS[char]) for char in text))
+
+    total = 0
+    current = 0
+    for char in text:
+        if char in KANJI_DIGITS:
+            current = KANJI_DIGITS[char]
+            continue
+        if char in KANJI_UNITS:
+            unit = KANJI_UNITS[char]
+            total += (current or 1) * unit
+            current = 0
+            continue
+        return None
+    return total + current
+
+
 def parse_japanese_date(value: str) -> date | None:
     """和暦または西暦の日本語日付を `date` に変換する。"""
 
@@ -69,15 +127,24 @@ def parse_japanese_date(value: str) -> date | None:
         )
 
     era = re.search(
-        r"(?P<era>明治|大正|昭和|平成|令和)\s*(?P<year>元|\d+)\s*年\s*(?P<month>\d{1,2})\s*月\s*(?P<day>\d{1,2})\s*日",
+        (
+            r"(?P<era>明治|大正|昭和|平成|令和)\s*"
+            r"(?P<year>元|\d+|[〇零一二三四五六七八九十百千]+)\s*年\s*"
+            r"(?P<month>\d{1,2}|[〇零一二三四五六七八九十]+)\s*月\s*"
+            r"(?P<day>\d{1,2}|[〇零一二三四五六七八九十]+)\s*日"
+        ),
         text,
     )
     if not era:
         return None
 
-    era_year = 1 if era.group("year") == "元" else int(era.group("year"))
+    era_year = parse_japanese_number(era.group("year"))
+    month = parse_japanese_number(era.group("month"))
+    day = parse_japanese_number(era.group("day"))
+    if era_year is None or month is None or day is None:
+        return None
     year = ERA_OFFSETS[era.group("era")] + era_year
-    return date(year, int(era.group("month")), int(era.group("day")))
+    return date(year, month, day)
 
 
 def slugify_japanese_label(value: str) -> str:
