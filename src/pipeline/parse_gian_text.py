@@ -5,11 +5,11 @@
 
 入力:
     - tmp/gian/list/{session}.json
-    - tmp/gian/detail/{bill_id}/text.html
-    - tmp/gian/detail/{bill_id}/documents/*.html
+    - tmp/gian/detail/{bill_id}/honbun/index.html
+    - tmp/gian/detail/{bill_id}/honbun/documents/*.html
 
 出力:
-    - tmp/gian/detail/{bill_id}/text.json
+    - tmp/gian/detail/{bill_id}/honbun/index.json
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def parse_documents(soup: BeautifulSoup, bill_id: str, base_url: str) -> list[Gi
         label = normalize_text(link.get_text(" ", strip=True))
         url = urljoin(base_url, href)
         document_type, title, note = classify_document(label)
-        local_path = f"tmp/gian/detail/{bill_id}/documents/{build_text_document_filename(url)}"
+        local_path = f"tmp/gian/detail/{bill_id}/honbun/documents/{build_text_document_filename(url)}"
         documents.append(
             GianTextDocumentParsed(
                 label=label,
@@ -163,7 +163,7 @@ def build_text_dataset(session: int, item, html: str) -> GianTextDataset:
 def save_text_dataset(dataset: GianTextDataset, detail_root: Path = DETAIL_ROOT) -> Path:
     """パース済み本文情報を JSON に保存する。"""
 
-    output_path = detail_root / dataset.bill_id / "text.json"
+    output_path = detail_root / dataset.bill_id / "honbun" / "index.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(dataset.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n",
@@ -190,7 +190,7 @@ def process_session(session: int, detail_root: Path = DETAIL_ROOT) -> list[Path]
             title=item.title,
             subcategory=item.subcategory,
         )
-        html_path = detail_root / bill_id / "text.html"
+        html_path = detail_root / bill_id / "honbun" / "index.html"
         logger.info("読込: bill_id=%s path=%s", bill_id, html_path)
         html = html_path.read_text(encoding="utf-8")
         dataset = build_text_dataset(session=session, item=item, html=html)

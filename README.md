@@ -77,7 +77,7 @@ uv run python src/pipeline/get_gian_list.py 221
 - 引数
   `session`: 取得対象の国会回次
 - 出力
-  `tmp/gian/detail/{bill_id}/{回次}/progress.html`
+  `tmp/gian/detail/{bill_id}/progress/{回次}.html`
 
 実行例:
 
@@ -91,11 +91,11 @@ uv run python src/pipeline/get_gian_progress.py 221
 
 - 入力
   `tmp/gian/list/{回次}.json`
-  `tmp/gian/detail/{bill_id}/{回次}/progress.html`
+  `tmp/gian/detail/{bill_id}/progress/{回次}.html`
 - 引数
   `session`: 取得対象の国会回次
 - 出力
-  `tmp/gian/detail/{bill_id}/{回次}/progress.json`
+  `tmp/gian/detail/{bill_id}/progress/{回次}.json`
 
 実行例:
 
@@ -112,8 +112,8 @@ uv run python src/pipeline/parse_gian_progress.py 221
 - 引数
   `session`: 取得対象の国会回次
 - 出力
-  `tmp/gian/detail/{bill_id}/text.html`
-  `tmp/gian/detail/{bill_id}/documents/*.html`
+  `tmp/gian/detail/{bill_id}/honbun/index.html`
+  `tmp/gian/detail/{bill_id}/honbun/documents/*.html`
 
 実行例:
 
@@ -127,11 +127,11 @@ uv run python src/pipeline/get_gian_text.py 221
 
 - 入力
   `tmp/gian/list/{回次}.json`
-  `tmp/gian/detail/{bill_id}/text.html`
+  `tmp/gian/detail/{bill_id}/honbun/index.html`
 - 引数
   `session`: 取得対象の国会回次
 - 出力
-  `tmp/gian/detail/{bill_id}/text.json`
+  `tmp/gian/detail/{bill_id}/honbun/index.json`
 
 実行例:
 

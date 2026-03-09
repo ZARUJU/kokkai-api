@@ -255,13 +255,13 @@
 推奨:
 
 - `src/pipeline/get_gian_progress.py`
-  一覧 JSON を入力に `progress_url` を巡回し、`progress.html` を保存する
+  一覧 JSON を入力に `progress_url` を巡回し、`progress/{session}.html` を保存する
 - `src/pipeline/parse_gian_progress.py`
-  保存済み `progress.html` を読み、`progress.json` を生成する
+  保存済み `progress/{session}.html` を読み、`progress/{session}.json` を生成する
 - `src/pipeline/get_gian_text.py`
-  一覧 JSON を入力に `text_url` を巡回し、`text.html` と関連文書 HTML を保存する
+  一覧 JSON を入力に `text_url` を巡回し、`honbun/index.html` と関連文書 HTML を保存する
 - `src/pipeline/parse_gian_text.py`
-  保存済み `text.html` を読み、`text.json` を生成する
+  保存済み `honbun/index.html` を読み、`honbun/index.json` を生成する
 
 理由:
 
@@ -321,22 +321,22 @@
 現在の前提としては、以下の保存方針がよい。
 
 - 進捗
-  `tmp/gian/detail/{bill_id}/{session}/progress.html`
-  `tmp/gian/detail/{bill_id}/{session}/progress.json`
+  `tmp/gian/detail/{bill_id}/progress/{session}.html`
+  `tmp/gian/detail/{bill_id}/progress/{session}.json`
 - 本文
-  `tmp/gian/detail/{bill_id}/text.html`
-  `tmp/gian/detail/{bill_id}/documents/*.html`
-  `tmp/gian/detail/{bill_id}/text.json`
+  `tmp/gian/detail/{bill_id}/honbun/index.html`
+  `tmp/gian/detail/{bill_id}/honbun/documents/*.html`
+  `tmp/gian/detail/{bill_id}/honbun/index.json`
 
 考え方:
 
-- `progress.html` は取得時点の原本として保持する
-- `progress.json` は `progress.html` のパース結果として扱う
+- `progress/{session}.html` は取得時点の原本として保持する
+- `progress/{session}.json` は `progress/{session}.html` のパース結果として扱う
 - `progress` は会期ごとの差分を持ちうるため、`session` をディレクトリに含める
-- `text` は議案共通の本文メニューとして 1 ファイルに寄せる
-- `text.html` は本文一覧ページの原本として保持する
-- `documents/*.html` は提出時法律案、要綱、修正案などの原本として保持する
-- `text.json` は本文一覧ページをパースした整形済みデータとして扱う
+- `honbun` は議案共通の本文情報をまとめるディレクトリとして扱う
+- `honbun/index.html` は本文一覧ページの原本として保持する
+- `honbun/documents/*.html` は提出時法律案、要綱、修正案などの原本として保持する
+- `honbun/index.json` は本文一覧ページをパースした整形済みデータとして扱う
 - 保存単位を議案 ID ベースにすると、あとから一覧データとの結合がしやすい
 
 ### 5.5 初期段階で保存したい最小単位
@@ -353,7 +353,7 @@
 - 取得元
   - `progress_url`
 - 保存済み raw HTML
-  - `progress.html`
+  - `progress/{session}.html`
 - 型付きの `parsed`
 
 #### 本文一覧
@@ -373,7 +373,7 @@
 
 本文については、以下のような配列構造が扱いやすい。
 
-- `documents: list[{label, title, url, document_type, note, html}]`
+- `documents: list[{label, title, url, document_type, note, local_path}]`
 
 例:
 

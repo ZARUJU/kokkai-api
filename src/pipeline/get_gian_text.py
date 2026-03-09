@@ -8,8 +8,8 @@
     - 各議案の text_url
 
 出力:
-    - tmp/gian/detail/{bill_id}/text.html
-    - tmp/gian/detail/{bill_id}/documents/*.html
+    - tmp/gian/detail/{bill_id}/honbun/index.html
+    - tmp/gian/detail/{bill_id}/honbun/documents/*.html
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ def extract_document_urls(html: str, base_url: str) -> list[str]:
 def save_text_html(bill_id: str, html: str, detail_root: Path = DETAIL_ROOT) -> Path:
     """本文一覧ページの raw HTML を保存する。"""
 
-    output_path = detail_root / bill_id / "text.html"
+    output_path = detail_root / bill_id / "honbun" / "index.html"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
     return output_path
@@ -88,7 +88,7 @@ def save_document_html(bill_id: str, url: str, html: str, detail_root: Path = DE
     """本文ページ配下の関連文書 HTML を保存する。"""
 
     filename = build_text_document_filename(url)
-    output_path = detail_root / bill_id / "documents" / filename
+    output_path = detail_root / bill_id / "honbun" / "documents" / filename
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
     return output_path

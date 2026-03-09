@@ -5,10 +5,10 @@
 
 入力:
     - tmp/gian/list/{session}.json
-    - tmp/gian/detail/{bill_id}/{session}/progress.html
+    - tmp/gian/detail/{bill_id}/progress/{session}.html
 
 出力:
-    - tmp/gian/detail/{bill_id}/{session}/progress.json
+    - tmp/gian/detail/{bill_id}/progress/{session}.json
 
 主な内容:
     - bill_id
@@ -278,7 +278,7 @@ def build_progress_dataset(session: int, item: GianItem, html: str) -> GianProgr
 def save_progress_dataset(dataset: GianProgressDataset, detail_root: Path = DETAIL_ROOT) -> Path:
     """パース済み進捗情報を JSON に保存する。"""
 
-    output_path = detail_root / dataset.bill_id / str(dataset.session_number) / "progress.json"
+    output_path = detail_root / dataset.bill_id / "progress" / f"{dataset.session_number}.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(dataset.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n",
@@ -304,7 +304,7 @@ def process_session(session: int, detail_root: Path = DETAIL_ROOT) -> list[Path]
             title=item.title,
             subcategory=item.subcategory,
         )
-        html_path = detail_root / bill_id / str(session) / "progress.html"
+        html_path = detail_root / bill_id / "progress" / f"{session}.html"
         logger.info("読込: bill_id=%s path=%s", bill_id, html_path)
         html = html_path.read_text(encoding="utf-8")
         dataset = build_progress_dataset(session=session, item=item, html=html)

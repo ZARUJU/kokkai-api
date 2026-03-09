@@ -8,7 +8,7 @@
     - 各議案の progress_url
 
 出力:
-    - tmp/gian/detail/{bill_id}/{session}/progress.html
+    - tmp/gian/detail/{bill_id}/progress/{session}.html
 
 主な内容:
     - bill_id
@@ -71,7 +71,7 @@ def save_progress_html(
 ) -> Path:
     """進捗ページの raw HTML を議案単位に保存する。"""
 
-    output_path = output_root / bill_id / str(session) / "progress.html"
+    output_path = output_root / bill_id / "progress" / f"{session}.html"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
     return output_path
