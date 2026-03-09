@@ -35,6 +35,15 @@ def normalize_text(value: str) -> str:
     return value.strip()
 
 
+def strip_name_honorific(value: str) -> str:
+    """人名末尾の敬称 `君` を除去する。"""
+
+    text = normalize_text(value)
+    text = re.sub(r"君(?=外)", "", text)
+    text = re.sub(r"君$", "", text)
+    return text.strip()
+
+
 def parse_int(value: str) -> int | None:
     """文字列中の最初の整数を抽出する。"""
 
