@@ -119,6 +119,16 @@ class GianMemberLawExtraParsed(BaseModel):
     supporters: list[str] = []
 
 
+class GianProgressBodyParsed(BaseModel):
+    """会期差分として扱う進捗本体の正規化モデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    house_of_reps: GianHouseProgressParsed = GianHouseProgressParsed()
+    house_of_councillors: GianHouseProgressParsed = GianHouseProgressParsed()
+    promulgation: GianPromulgationParsed = GianPromulgationParsed()
+
+
 class GianProgressParsed(BaseModel):
     """議案進捗ページ全体の正規化モデル。"""
 
@@ -196,3 +206,99 @@ class GianTextDataset(BaseModel):
     source_url: AnyHttpUrl
     fetched_at: datetime
     parsed: GianTextParsed
+
+
+class DistributedGianListItem(BaseModel):
+    """配布用の議案一覧1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bill_id: str
+    category: str
+    subcategory: str | None = None
+    submitted_session: int | None = None
+    bill_number: int | None = None
+    title: str
+    status: str | None = None
+    progress_url: AnyHttpUrl | None = None
+    text_url: AnyHttpUrl | None = None
+    has_progress: bool
+    has_honbun: bool
+
+
+class DistributedGianListDataset(BaseModel):
+    """配布用の会期別議案一覧を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_number: int
+    built_at: datetime
+    items: list[DistributedGianListItem]
+
+
+class DistributedGianSessionStatus(BaseModel):
+    """特定会期における議案の掲載状況を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_number: int
+    status: str | None = None
+
+
+class DistributedGianBasicInfo(BaseModel):
+    """配布用個票の基本情報を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bill_type: str | None = None
+    bill_title: str | None = None
+    submitter: str | None = None
+    submitter_group: str | None = None
+    member_law_extra: GianMemberLawExtraParsed | None = None
+
+
+class DistributedGianProgressRecord(BaseModel):
+    """配布用個票に含める会期別進捗情報を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_number: int
+    source_url: AnyHttpUrl
+    page_title: str | None = None
+    status: str | None = None
+    parsed: GianProgressBodyParsed
+
+
+class DistributedGianHonbunDocument(BaseModel):
+    """配布用個票に含める本文文書1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    title: str | None = None
+    document_type: str
+    note: str | None = None
+    source_url: AnyHttpUrl
+    html: str
+    text: str
+
+
+class DistributedGianDetailDataset(BaseModel):
+    """配布用の議案個票を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bill_id: str
+    category: str
+    subcategory: str | None = None
+    submitted_session: int | None = None
+    bill_number: int | None = None
+    title: str
+    listed_sessions: list[int]
+    session_statuses: list[DistributedGianSessionStatus]
+    basic_info: DistributedGianBasicInfo
+    progress: list[DistributedGianProgressRecord]
+    honbun_source_url: AnyHttpUrl | None = None
+    honbun_page_title: str | None = None
+    honbun_documents: list[DistributedGianHonbunDocument]
+    built_at: datetime
