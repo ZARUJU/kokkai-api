@@ -200,6 +200,170 @@ uv run python src/pipeline/gian/parse_gian_text.py 221
 uv run python src/pipeline/gian/build_gian_distribution.py 218 220 221
 ```
 
+### `get_shugiin_seigan_list.py`
+
+衆議院サイトの「請願一覧」から、指定した国会回次の raw HTML を取得して保存します。
+
+- 入力
+  `https://www.shugiin.go.jp/internet/itdb_seigan.nsf/html/seigan/{回次}_l.htm`
+- 引数
+  `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/seigan/shugiin/list/{回次}.html` が既にある場合は取得をスキップ
+- 出力
+  `tmp/seigan/shugiin/list/{回次}.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/seigan/get_shugiin_seigan_list.py 217 --skip-existing
+```
+
+### `parse_shugiin_seigan_list.py`
+
+保存済みの衆議院請願一覧 HTML をパースし、共通形式の一覧 JSON として保存します。
+
+- 入力
+  `tmp/seigan/shugiin/list/{回次}.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/seigan/shugiin/list/{回次}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/seigan/parse_shugiin_seigan_list.py 217
+```
+
+### `get_shugiin_seigan_detail.py`
+
+衆議院請願一覧 JSON を入力に、各請願個票の raw HTML を保存します。
+
+- 入力
+  `tmp/seigan/shugiin/list/{回次}.json`
+- 引数
+  `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/seigan/shugiin/detail/{petition_id}/detail.html` が既にある場合は取得をスキップ
+- 出力
+  `tmp/seigan/shugiin/detail/{petition_id}/detail.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/seigan/get_shugiin_seigan_detail.py 217 --skip-existing
+```
+
+### `parse_shugiin_seigan_detail.py`
+
+保存済みの衆議院請願個別 HTML をパースし、共通形式の個票 JSON として保存します。
+
+- 入力
+  `tmp/seigan/shugiin/list/{回次}.json`
+  `tmp/seigan/shugiin/detail/{petition_id}/detail.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/seigan/shugiin/detail/{petition_id}/index.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/seigan/parse_shugiin_seigan_detail.py 217
+```
+
+### `get_sangiin_seigan_list.py`
+
+参議院サイトの「請願一覧」から、指定した国会回次の raw HTML を取得して保存します。
+
+- 入力
+  `https://www.sangiin.go.jp/japanese/joho1/kousei/seigan/{回次}/seigan.htm`
+- 引数
+  `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/seigan/sangiin/list/{回次}.html` が既にある場合は取得をスキップ
+- 出力
+  `tmp/seigan/sangiin/list/{回次}.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/seigan/get_sangiin_seigan_list.py 217 --skip-existing
+```
+
+### `parse_sangiin_seigan_list.py`
+
+保存済みの参議院請願一覧 HTML をパースし、共通形式の一覧 JSON として保存します。
+
+- 入力
+  `tmp/seigan/sangiin/list/{回次}.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/seigan/sangiin/list/{回次}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/seigan/parse_sangiin_seigan_list.py 217
+```
+
+### `get_sangiin_seigan_detail.py`
+
+参議院請願一覧 JSON を入力に、各請願の要旨ページと同趣旨一覧ページの raw HTML を保存します。
+
+- 入力
+  `tmp/seigan/sangiin/list/{回次}.json`
+- 引数
+  `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/seigan/sangiin/detail/{petition_id}/*.html` が既にある場合は取得をスキップ
+- 出力
+  `tmp/seigan/sangiin/detail/{petition_id}/detail.html`
+  `tmp/seigan/sangiin/detail/{petition_id}/similar.html`
+
+実行例:
+
+```bash
+uv run python src/pipeline/seigan/get_sangiin_seigan_detail.py 217 --skip-existing
+```
+
+### `parse_sangiin_seigan_detail.py`
+
+保存済みの参議院請願個別 HTML をパースし、衆議院側と同じ共通形式の個票 JSON として保存します。
+
+- 入力
+  `tmp/seigan/sangiin/list/{回次}.json`
+  `tmp/seigan/sangiin/detail/{petition_id}/detail.html`
+  `tmp/seigan/sangiin/detail/{petition_id}/similar.html`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/seigan/sangiin/detail/{petition_id}/index.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/seigan/parse_sangiin_seigan_detail.py 217
+```
+
+### `build_seigan_distribution.py`
+
+保存済みの衆参請願一覧・個票 JSON を、配布用データとして `data/` に保存します。
+
+- 入力
+  `tmp/seigan/{house}/list/{回次}.json`
+  `tmp/seigan/{house}/detail/{petition_id}/index.json`
+- 引数
+  `sessions...`: 対象の国会回次。省略時は保存済み一覧 JSON を全件処理
+  `--house`: `shugiin` `sangiin` `all`。既定値は `all`
+- 出力
+  `data/seigan/{house}/list/{回次}.json`
+  `data/seigan/{house}/detail/{petition_id}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/seigan/build_seigan_distribution.py --house all 217
+```
+
 ### `get_shugiin_shitsumon_list.py`
 
 衆議院サイトの「質問主意書一覧」から、指定した国会回次の raw HTML を取得して保存します。
@@ -393,7 +557,7 @@ uv run python src/pipeline/people/build_people_index.py
 
 ## API
 
-会期一覧、議案、質問主意書、人物インデックスの配布用 JSON を FastAPI で配信できます。
+会期一覧、議案、請願、質問主意書、人物インデックスの配布用 JSON を FastAPI で配信できます。
 公開用の正式エンドポイントは `/v1` 配下です。
 
 起動例:
@@ -411,6 +575,10 @@ uv run api.py
 - `GET /v1/gian/list/{session}`
 - `GET /v1/gian/detail`
 - `GET /v1/gian/detail/{bill_id}`
+- `GET /v1/seigan/{house}/list`
+- `GET /v1/seigan/{house}/list/{session}`
+- `GET /v1/seigan/{house}/detail`
+- `GET /v1/seigan/{house}/detail/{petition_id}`
 - `GET /v1/shitsumon/{house}/list`
 - `GET /v1/shitsumon/{house}/list/{session}`
 - `GET /v1/shitsumon/{house}/detail`

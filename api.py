@@ -1,4 +1,4 @@
-"""会期一覧・議案・質問主意書・人物インデックスの配布用 JSON を公開する FastAPI アプリケーション。
+"""会期一覧・議案・請願・質問主意書・人物インデックスの配布用 JSON を公開する FastAPI アプリケーション。
 
 主なエンドポイント:
     - GET /health
@@ -8,6 +8,10 @@
     - GET /v1/gian/list/{session}
     - GET /v1/gian/detail
     - GET /v1/gian/detail/{bill_id}
+    - GET /v1/seigan/{house}/list
+    - GET /v1/seigan/{house}/list/{session}
+    - GET /v1/seigan/{house}/detail
+    - GET /v1/seigan/{house}/detail/{petition_id}
     - GET /v1/shitsumon/{house}/list
     - GET /v1/shitsumon/{house}/list/{session}
     - GET /v1/shitsumon/{house}/detail
@@ -20,6 +24,8 @@
     - data/kaiki.json
     - data/gian/list/*.json
     - data/gian/detail/*.json
+    - data/seigan/{house}/list/*.json
+    - data/seigan/{house}/detail/*.json
     - data/shitsumon/{house}/list/*.json
     - data/shitsumon/{house}/detail/*.json
     - data/people/index.json
@@ -49,6 +55,8 @@ from src.models import (
     DistributedGianListDataset,
     DistributedPeopleDataset,
     DistributedPersonItem,
+    DistributedSeiganDetailDataset,
+    DistributedSeiganListDataset,
     KaikiDataset,
     SangiinShitsumonDetailDataset,
     SangiinShitsumonListDataset,
@@ -62,6 +70,7 @@ DATA_ROOT = PROJECT_ROOT / "data"
 KAIKI_PATH = DATA_ROOT / "kaiki.json"
 GIAN_LIST_DIR = DATA_ROOT / "gian" / "list"
 GIAN_DETAIL_DIR = DATA_ROOT / "gian" / "detail"
+SEIGAN_ROOT = DATA_ROOT / "seigan"
 SHITSUMON_ROOT = DATA_ROOT / "shitsumon"
 PEOPLE_PATH = DATA_ROOT / "people" / "index.json"
 
@@ -75,7 +84,7 @@ class House(str, Enum):
 
 app = FastAPI(
     title="kokkai-api",
-    description="会期一覧・議案・質問主意書・人物インデックスの配布用データを公開する API",
+    description="会期一覧・議案・請願・質問主意書・人物インデックスの配布用データを公開する API",
     version=API_VERSION,
 )
 app.add_middleware(
@@ -131,6 +140,22 @@ def load_gian_detail(bill_id: str) -> DistributedGianDetailDataset:
 
 
 @lru_cache(maxsize=512)
+def load_seigan_list(house: House, session: int) -> DistributedSeiganListDataset:
+    """指定院・指定回次の請願一覧を読み込む。"""
+
+    path = SEIGAN_ROOT / house.value / "list" / f"{session}.json"
+    return DistributedSeiganListDataset.model_validate_json(_read_json(path))
+
+
+@lru_cache(maxsize=4096)
+def load_seigan_detail(house: House, petition_id: str) -> DistributedSeiganDetailDataset:
+    """指定院・指定請願の個票を読み込む。"""
+
+    path = SEIGAN_ROOT / house.value / "detail" / f"{petition_id}.json"
+    return DistributedSeiganDetailDataset.model_validate_json(_read_json(path))
+
+
+@lru_cache(maxsize=512)
 def load_shitsumon_list(house: House, session: int) -> ShugiinShitsumonListDataset | SangiinShitsumonListDataset:
     """指定院・指定回次の質問主意書一覧を読み込む。"""
 
@@ -177,6 +202,24 @@ def list_available_bill_ids() -> list[str]:
     """配布済み議案個票の bill_id 一覧を返す。"""
 
     return sorted(path.stem for path in GIAN_DETAIL_DIR.glob("*.json"))
+
+
+def list_available_seigan_sessions(house: House) -> list[int]:
+    """指定院の請願一覧回次を返す。"""
+
+    sessions: list[int] = []
+    for path in sorted((SEIGAN_ROOT / house.value / "list").glob("*.json")):
+        try:
+            sessions.append(int(path.stem))
+        except ValueError:
+            continue
+    return sessions
+
+
+def list_available_petition_ids(house: House) -> list[str]:
+    """指定院の請願 ID 一覧を返す。"""
+
+    return sorted(path.stem for path in (SEIGAN_ROOT / house.value / "detail").glob("*.json"))
 
 
 def list_available_shitsumon_sessions(house: House) -> list[int]:
@@ -241,6 +284,14 @@ def build_meta() -> ApiMetaResponse:
             (load_gian_list(session).built_at for session in list_available_gian_sessions()),
             default=None,
         ),
+        "seigan_shugiin_latest_list": max(
+            (load_seigan_list(House.SHUGIIN, session).built_at for session in list_available_seigan_sessions(House.SHUGIIN)),
+            default=None,
+        ),
+        "seigan_sangiin_latest_list": max(
+            (load_seigan_list(House.SANGIIN, session).built_at for session in list_available_seigan_sessions(House.SANGIIN)),
+            default=None,
+        ),
         "shitsumon_shugiin_latest_list": max(
             (load_shitsumon_list(House.SHUGIIN, session).fetched_at for session in list_available_shitsumon_sessions(House.SHUGIIN)),
             default=None,
@@ -254,8 +305,10 @@ def build_meta() -> ApiMetaResponse:
         api_version=API_VERSION,
         datasets_built_at=datasets_built_at,
         available_gian_sessions=list_available_gian_sessions(),
+        available_seigan_sessions={house.value: list_available_seigan_sessions(house) for house in House},
         available_shitsumon_sessions={house.value: list_available_shitsumon_sessions(house) for house in House},
         available_bill_count=len(list_available_bill_ids()),
+        available_petition_count=sum(len(list_available_petition_ids(house)) for house in House),
         available_people_count=len(people_dataset.items),
     )
 
@@ -274,6 +327,8 @@ def read_root() -> dict[str, object]:
         "v1": f"/{API_VERSION}",
         "available_gian_sessions": meta.available_gian_sessions,
         "available_bill_count": meta.available_bill_count,
+        "available_seigan_sessions": meta.available_seigan_sessions,
+        "available_petition_count": meta.available_petition_count,
         "available_shitsumon_sessions": meta.available_shitsumon_sessions,
         "available_people_count": meta.available_people_count,
     }
@@ -329,6 +384,38 @@ def read_gian_detail_item(bill_id: str) -> DistributedGianDetailDataset:
     """指定議案の個票を返す。"""
 
     return load_gian_detail(bill_id)
+
+
+@router.get("/seigan/{house}/list", response_model=ApiSessionListResponse)
+def read_seigan_list_index(house: House) -> ApiSessionListResponse:
+    """指定院で利用可能な請願一覧回次を返す。"""
+
+    return ApiSessionListResponse(sessions=list_available_seigan_sessions(house))
+
+
+@router.get("/seigan/{house}/list/{session}", response_model=DistributedSeiganListDataset)
+def read_seigan_list(house: House, session: int) -> DistributedSeiganListDataset:
+    """指定院・指定回次の請願一覧を返す。"""
+
+    return load_seigan_list(house, session)
+
+
+@router.get("/seigan/{house}/detail", response_model=ApiIdListResponse)
+def read_seigan_detail_index(
+    house: House,
+    limit: int = Query(100, ge=1, le=1000, description="返す petition_id 件数"),
+    offset: int = Query(0, ge=0, description="返却開始位置"),
+) -> ApiIdListResponse:
+    """指定院で利用可能な請願個票 ID 一覧を返す。"""
+
+    return _paginate(list_available_petition_ids(house), offset=offset, limit=limit)
+
+
+@router.get("/seigan/{house}/detail/{petition_id}", response_model=DistributedSeiganDetailDataset)
+def read_seigan_detail_item(house: House, petition_id: str) -> DistributedSeiganDetailDataset:
+    """指定院・指定請願の個票を返す。"""
+
+    return load_seigan_detail(house, petition_id)
 
 
 @router.get("/shitsumon/{house}/list", response_model=ApiSessionListResponse)

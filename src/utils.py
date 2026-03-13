@@ -57,6 +57,18 @@ def build_sangiin_shitsumon_id(session_number: int, question_number: int) -> str
     return f"san-{session_number}-{question_number:03d}"
 
 
+def build_shugiin_seigan_id(session_number: int, petition_number: int) -> str:
+    """衆議院請願の安定した ID を生成する。"""
+
+    return f"shu-seigan-{session_number}-{petition_number:04d}"
+
+
+def build_sangiin_seigan_id(session_number: int, petition_number: int) -> str:
+    """参議院請願の安定した ID を生成する。"""
+
+    return f"san-seigan-{session_number}-{petition_number:04d}"
+
+
 def normalize_text(value: str) -> str:
     """空白やノーブレークスペースを正規化する。"""
 
@@ -72,6 +84,13 @@ def strip_name_honorific(value: str) -> str:
     text = re.sub(r"君(?=外)", "", text)
     text = re.sub(r"君$", "", text)
     return text.strip()
+
+
+def normalize_person_name(value: str) -> str:
+    """人物名の体裁差を吸収し、氏名中の空白を除去する。"""
+
+    text = strip_name_honorific(value)
+    return re.sub(r"\s+", "", text)
 
 
 def split_person_and_count(value: str) -> tuple[str, int | None, bool]:

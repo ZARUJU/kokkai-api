@@ -1,10 +1,11 @@
-"""議案と質問主意書の配布用 JSON から人物インデックスを生成して `data/` に保存する。
+"""議案・請願・質問主意書の配布用 JSON から人物インデックスを生成して `data/` に保存する。
 
 引数:
     - なし
 
 入力:
     - data/gian/detail/*.json
+    - data/seigan/{house}/detail/*.json
     - data/shitsumon/shugiin/detail/*.json
     - data/shitsumon/sangiin/detail/*.json
 
@@ -15,6 +16,7 @@
     - 人物ごとの正規化キー
     - 表記ゆれ一覧
     - 議案との関係
+    - 請願との関係
     - 質問主意書との関係
 """
 
@@ -36,13 +38,16 @@ from src.models import (
     DistributedPeopleDataset,
     DistributedPersonGianRelation,
     DistributedPersonItem,
+    DistributedPersonSeiganRelation,
     DistributedPersonShitsumonRelation,
+    DistributedSeiganDetailDataset,
     SangiinShitsumonDetailDataset,
     ShugiinShitsumonDetailDataset,
 )
-from src.utils import normalize_text, strip_name_honorific
+from src.utils import normalize_person_name, normalize_text
 
 GIAN_DETAIL_DIR = Path("data/gian/detail")
+SEIGAN_ROOT = Path("data/seigan")
 SHITSUMON_ROOT = Path("data/shitsumon")
 OUTPUT_PATH = Path("data/people/index.json")
 logger = logging.getLogger(__name__)
@@ -51,7 +56,7 @@ logger = logging.getLogger(__name__)
 def build_person_key(name: str) -> str:
     """人物名から配布用の正規化キーを作る。"""
 
-    return strip_name_honorific(normalize_text(name))
+    return normalize_person_name(name)
 
 
 def save_json(path: Path, payload: dict) -> Path:
@@ -62,12 +67,29 @@ def save_json(path: Path, payload: dict) -> Path:
     return path
 
 
-def relation_sort_key(relation: DistributedPersonGianRelation | DistributedPersonShitsumonRelation) -> tuple:
+def relation_sort_key(
+    relation: DistributedPersonGianRelation | DistributedPersonSeiganRelation | DistributedPersonShitsumonRelation,
+) -> tuple:
     """関係配列の並び順を安定化する。"""
 
     if isinstance(relation, DistributedPersonGianRelation):
         return (relation.submitted_session or 0, relation.bill_id, relation.role, relation.title)
+    if isinstance(relation, DistributedPersonSeiganRelation):
+        return (relation.session_number or 0, relation.house, relation.petition_id, relation.role, relation.title)
     return (relation.session_number or 0, relation.house, relation.question_id, relation.role, relation.title)
+
+
+def load_seigan_details() -> list[tuple[str, DistributedSeiganDetailDataset]]:
+    """衆参請願の個票を読み込む。"""
+
+    details: list[tuple[str, DistributedSeiganDetailDataset]] = []
+    for house in ("shugiin", "sangiin"):
+        detail_dir = SEIGAN_ROOT / house / "detail"
+        if not detail_dir.exists():
+            continue
+        for path in sorted(detail_dir.glob("*.json")):
+            details.append((house, DistributedSeiganDetailDataset.model_validate_json(path.read_text(encoding="utf-8"))))
+    return details
 
 
 def load_shitsumon_details() -> list[tuple[str, ShugiinShitsumonDetailDataset | SangiinShitsumonDetailDataset]]:
@@ -104,6 +126,7 @@ def process() -> Path:
 
     name_variants: dict[str, set[str]] = defaultdict(set)
     gian_relations: dict[str, list[DistributedPersonGianRelation]] = defaultdict(list)
+    seigan_relations: dict[str, list[DistributedPersonSeiganRelation]] = defaultdict(list)
     shitsumon_relations: dict[str, list[DistributedPersonShitsumonRelation]] = defaultdict(list)
 
     if GIAN_DETAIL_DIR.exists():
@@ -153,6 +176,22 @@ def process() -> Path:
                         )
                     )
 
+    for house, detail in load_seigan_details():
+        for presenter in detail.presenters:
+            person_key = build_person_key(presenter.presenter_name)
+            if not person_key:
+                continue
+            name_variants[person_key].add(normalize_person_name(presenter.presenter_name))
+            seigan_relations[person_key].append(
+                DistributedPersonSeiganRelation(
+                    petition_id=detail.petition_id,
+                    title=detail.title,
+                    role="presenter",
+                    house=house,
+                    session_number=detail.session_number,
+                )
+            )
+
     for house, detail in load_shitsumon_details():
         session_number = extract_session_number_from_question_id(detail.question_id)
 
@@ -190,6 +229,10 @@ def process() -> Path:
         unique_gian_relations = {
             (relation.bill_id, relation.role): relation for relation in gian_relations.get(person_key, [])
         }
+        unique_seigan_relations = {
+            (relation.petition_id, relation.house, relation.role): relation
+            for relation in seigan_relations.get(person_key, [])
+        }
         unique_shitsumon_relations = {
             (relation.question_id, relation.house, relation.role): relation
             for relation in shitsumon_relations.get(person_key, [])
@@ -200,6 +243,7 @@ def process() -> Path:
                 canonical_name=person_key,
                 name_variants=sorted(name_variants[person_key]),
                 gian_relations=sorted(unique_gian_relations.values(), key=relation_sort_key),
+                seigan_relations=sorted(unique_seigan_relations.values(), key=relation_sort_key),
                 shitsumon_relations=sorted(unique_shitsumon_relations.values(), key=relation_sort_key),
             )
         )

@@ -102,6 +102,68 @@ class SangiinShitsumonDetailDataset(BaseModel):
     answer_document: ShugiinShitsumonDocumentParsed | None = None
 
 
+class SeiganListItem(BaseModel):
+    """請願一覧の1件を表す共通モデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    house: str
+    petition_number: int
+    title: str
+    committee_name: str | None = None
+    committee_code: str | None = None
+    detail_url: AnyHttpUrl | None = None
+    similar_petitions_url: AnyHttpUrl | None = None
+    is_referred: bool = True
+
+
+class SeiganListDataset(BaseModel):
+    """請願一覧の共通データセットを表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_url: AnyHttpUrl
+    fetched_at: datetime
+    house: str
+    session_number: int
+    items: list[SeiganListItem]
+
+
+class SeiganPresenter(BaseModel):
+    """請願の紹介議員・受理単位情報1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    receipt_number: int | None = None
+    presenter_name: str
+    party_name: str | None = None
+    received_at: date | None = None
+    referred_at: date | None = None
+    result: str | None = None
+
+
+class SeiganDetailDataset(BaseModel):
+    """請願個票の共通パース結果を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    petition_id: str
+    house: str
+    session_number: int
+    petition_number: int
+    title: str
+    committee_name: str | None = None
+    committee_code: str | None = None
+    detail_source_url: AnyHttpUrl | None = None
+    similar_petitions_source_url: AnyHttpUrl | None = None
+    fetched_at: datetime
+    summary_text: str | None = None
+    accepted_count: int | None = None
+    signer_count: int | None = None
+    outcome: str | None = None
+    presenters: list[SeiganPresenter] = []
+
+
 class ShugiinShitsumonProgressParsed(BaseModel):
     """衆議院質問主意書の経過情報を正規化したモデル。"""
 
@@ -441,6 +503,18 @@ class DistributedPersonShitsumonRelation(BaseModel):
     session_number: int | None = None
 
 
+class DistributedPersonSeiganRelation(BaseModel):
+    """人物と請願の関係1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    petition_id: str
+    title: str
+    role: str
+    house: str
+    session_number: int | None = None
+
+
 class DistributedPersonItem(BaseModel):
     """人物インデックスの1件を表すモデル。"""
 
@@ -450,6 +524,7 @@ class DistributedPersonItem(BaseModel):
     canonical_name: str
     name_variants: list[str] = []
     gian_relations: list[DistributedPersonGianRelation] = []
+    seigan_relations: list[DistributedPersonSeiganRelation] = []
     shitsumon_relations: list[DistributedPersonShitsumonRelation] = []
 
 
@@ -460,6 +535,39 @@ class DistributedPeopleDataset(BaseModel):
 
     built_at: datetime
     items: list[DistributedPersonItem]
+
+
+class DistributedSeiganListDataset(BaseModel):
+    """配布用の請願一覧を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    house: str
+    session_number: int
+    built_at: datetime
+    items: list[SeiganListItem]
+
+
+class DistributedSeiganDetailDataset(BaseModel):
+    """配布用の請願個票を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    petition_id: str
+    house: str
+    session_number: int
+    petition_number: int
+    title: str
+    committee_name: str | None = None
+    committee_code: str | None = None
+    detail_source_url: AnyHttpUrl | None = None
+    similar_petitions_source_url: AnyHttpUrl | None = None
+    summary_text: str | None = None
+    accepted_count: int | None = None
+    signer_count: int | None = None
+    outcome: str | None = None
+    presenters: list[SeiganPresenter] = []
+    built_at: datetime
 
 
 class ApiSessionListResponse(BaseModel):
@@ -489,8 +597,10 @@ class ApiMetaResponse(BaseModel):
     api_version: str
     datasets_built_at: dict[str, datetime | None]
     available_gian_sessions: list[int]
+    available_seigan_sessions: dict[str, list[int]]
     available_shitsumon_sessions: dict[str, list[int]]
     available_bill_count: int
+    available_petition_count: int
     available_people_count: int
 
 
