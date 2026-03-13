@@ -29,7 +29,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.utils import decode_html_bytes, remember_fetched_output, should_skip_fetch_output
+from src.utils import decode_html_bytes, polite_get, remember_fetched_output, should_skip_fetch_output
 
 SOURCE_URL_TEMPLATES = (
     "https://www.shugiin.go.jp/internet/itdb_shitsumon.nsf/html/shitsumon/kaiji{session:03d}_l.htm",
@@ -65,7 +65,7 @@ def build_source_urls(session: int) -> list[str]:
 def fetch_html(url: str) -> str:
     """質問主意書一覧ページの raw HTML を取得する。"""
 
-    response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+    response = polite_get(url, headers=REQUEST_HEADERS, timeout=30)
     response.raise_for_status()
     return decode_html_bytes(
         content=response.content,

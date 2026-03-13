@@ -22,14 +22,12 @@ import logging
 import sys
 from pathlib import Path
 
-import requests
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import SeiganListDataset
-from src.utils import build_shugiin_seigan_id, remember_fetched_output, should_skip_fetch_output
+from src.utils import build_shugiin_seigan_id, polite_get, remember_fetched_output, should_skip_fetch_output
 
 INPUT_DIR = Path("tmp/seigan/shugiin/list")
 DETAIL_ROOT = Path("tmp/seigan/shugiin/detail")
@@ -57,7 +55,7 @@ def load_list(session: int, input_dir: Path = INPUT_DIR) -> SeiganListDataset:
 def fetch_html(url: str) -> str:
     """個別ページの raw HTML を取得する。"""
 
-    response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+    response = polite_get(url, headers=REQUEST_HEADERS, timeout=30)
     response.raise_for_status()
     response.encoding = response.apparent_encoding or response.encoding
     return response.text

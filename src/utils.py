@@ -1,11 +1,16 @@
-"""文字列整形や日付変換に関する補助関数。"""
+"""文字列整形、日付変換、取得制御に関する補助関数。"""
 
 import hashlib
 import json
+import logging
+import os
 import re
+import time as time_module
 from datetime import date, time
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
+
+import requests
 
 
 ERA_OFFSETS = {
@@ -45,6 +50,9 @@ KANJI_UNITS = {
     "千": 1000,
 }
 FETCHED_OUTPUT_PATHS_IN_RUN: set[Path] = set()
+DEFAULT_FETCH_INTERVAL_SECONDS = 1.0
+_LAST_FETCH_COMPLETED_AT: float | None = None
+logger = logging.getLogger(__name__)
 
 
 def build_shugiin_shitsumon_id(session_number: int, question_number: int) -> str:
@@ -405,6 +413,41 @@ def remember_fetched_output(path: Path) -> Path:
 
     FETCHED_OUTPUT_PATHS_IN_RUN.add(path.resolve())
     return path
+
+
+def get_fetch_interval_seconds() -> float:
+    """取得間隔の設定値を秒で返す。"""
+
+    raw_value = os.getenv("KOKKAI_FETCH_INTERVAL_SECONDS")
+    if raw_value is None:
+        return DEFAULT_FETCH_INTERVAL_SECONDS
+    try:
+        return max(0.0, float(raw_value))
+    except ValueError:
+        logger.warning(
+            "KOKKAI_FETCH_INTERVAL_SECONDS の値が不正なため既定値を使用します: %s",
+            raw_value,
+        )
+        return DEFAULT_FETCH_INTERVAL_SECONDS
+
+
+def polite_get(url: str, **kwargs: object) -> requests.Response:
+    """直前の取得から一定時間空けて GET リクエストを送る。"""
+
+    global _LAST_FETCH_COMPLETED_AT
+
+    interval_seconds = get_fetch_interval_seconds()
+    if _LAST_FETCH_COMPLETED_AT is not None and interval_seconds > 0:
+        elapsed = time_module.monotonic() - _LAST_FETCH_COMPLETED_AT
+        sleep_seconds = interval_seconds - elapsed
+        if sleep_seconds > 0:
+            logger.debug("取得間隔調整のため待機します: %.3f秒 url=%s", sleep_seconds, url)
+            time_module.sleep(sleep_seconds)
+
+    try:
+        return requests.get(url, **kwargs)
+    finally:
+        _LAST_FETCH_COMPLETED_AT = time_module.monotonic()
 
 
 def has_complete_answer_received_shitsumon_detail(detail_dir: Path, required_html_names: tuple[str, ...]) -> bool:

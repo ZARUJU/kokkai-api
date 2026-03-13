@@ -24,14 +24,12 @@ import logging
 import sys
 from pathlib import Path
 
-import requests
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import GianListDataset
-from src.utils import build_gian_bill_id, remember_fetched_output, should_skip_fetch_output
+from src.utils import build_gian_bill_id, polite_get, remember_fetched_output, should_skip_fetch_output
 
 INPUT_DIR = Path("tmp/gian/list")
 OUTPUT_ROOT = Path("tmp/gian/detail")
@@ -66,7 +64,7 @@ def load_gian_list(session: int, input_dir: Path = INPUT_DIR) -> GianListDataset
 def fetch_html(url: str) -> str:
     """進捗ページの raw HTML を取得する。"""
 
-    response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+    response = polite_get(url, headers=REQUEST_HEADERS, timeout=30)
     response.raise_for_status()
     response.encoding = response.apparent_encoding or response.encoding
     return response.text

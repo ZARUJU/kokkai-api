@@ -30,7 +30,6 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import requests
 from bs4 import BeautifulSoup, Tag
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -42,6 +41,7 @@ from src.utils import (
     normalize_text,
     parse_int,
     parse_japanese_date,
+    polite_get,
     remember_fetched_output,
     should_skip_fetch_output,
 )
@@ -68,7 +68,7 @@ def parse_args() -> argparse.Namespace:
 def fetch_html(url: str = SOURCE_URL) -> str:
     """会期一覧ページの HTML を取得する。"""
 
-    response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+    response = polite_get(url, headers=REQUEST_HEADERS, timeout=30)
     response.raise_for_status()
     response.encoding = response.apparent_encoding or response.encoding
     return response.text

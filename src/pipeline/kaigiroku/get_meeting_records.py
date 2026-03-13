@@ -33,7 +33,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlencode
 
-import requests
 from pydantic import ValidationError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -41,7 +40,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import KokkaiMeetingApiDataset, KokkaiMeetingRecord, KokkaiSpeechRecord
-from src.utils import remember_fetched_output, should_skip_fetch_output
+from src.utils import polite_get, remember_fetched_output, should_skip_fetch_output
 
 SOURCE_URL = "https://kokkai.ndl.go.jp/api/meeting"
 OUTPUT_DIR = Path("tmp/kaigiroku/meeting")
@@ -86,7 +85,7 @@ def build_source_url(session: int) -> str:
 def fetch_page(session: int, start_record: int) -> dict:
     """API の1ページ分を取得する。"""
 
-    response = requests.get(
+    response = polite_get(
         SOURCE_URL,
         params=build_query_params(session=session, start_record=start_record),
         headers=REQUEST_HEADERS,

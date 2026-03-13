@@ -40,6 +40,7 @@ from src.utils import (
     build_shugiin_shitsumon_id,
     decode_html_bytes,
     has_complete_answer_received_shitsumon_detail,
+    polite_get,
     remember_fetched_output,
     should_skip_fetch_output,
 )
@@ -76,7 +77,7 @@ def load_shitsumon_list(session: int, input_dir: Path = INPUT_DIR) -> ShugiinShi
 def fetch_html(url: str) -> str:
     """個別ページの raw HTML を取得する。"""
 
-    response = requests.get(url, headers=REQUEST_HEADERS, timeout=60)
+    response = polite_get(url, headers=REQUEST_HEADERS, timeout=60)
     response.raise_for_status()
     return decode_html_bytes(
         content=response.content,

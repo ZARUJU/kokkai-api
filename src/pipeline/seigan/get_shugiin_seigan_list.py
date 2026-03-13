@@ -22,13 +22,11 @@ import logging
 import sys
 from pathlib import Path
 
-import requests
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.utils import remember_fetched_output, should_skip_fetch_output
+from src.utils import polite_get, remember_fetched_output, should_skip_fetch_output
 
 SOURCE_URL_TEMPLATE = "https://www.shugiin.go.jp/internet/itdb_seigan.nsf/html/seigan/{session}_l.htm"
 OUTPUT_DIR = Path("tmp/seigan/shugiin/list")
@@ -56,7 +54,7 @@ def build_source_url(session: int) -> str:
 def fetch_html(url: str) -> str:
     """請願一覧ページの raw HTML を取得する。"""
 
-    response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+    response = polite_get(url, headers=REQUEST_HEADERS, timeout=30)
     response.raise_for_status()
     response.encoding = response.apparent_encoding or response.encoding
     return response.text
