@@ -51,7 +51,7 @@ INPUT_DIR = Path("tmp/kaigiroku/meeting")
 OUTPUT_DIR = Path("tmp/kaigiroku/parsed")
 logger = logging.getLogger(__name__)
 
-SEPARATOR_CHARS = {"―", "－", "-", "─", "◇", "…", "･", "・", " ", "\t"}
+SEPARATOR_CHARS = {"―", "－", "-", "─", "—", "◇", "…", "･", "・", " ", "\t"}
 ROLE_HEADER_LABELS = {"理事", "委員", "委員長", "事務局側", "政府参考人", "政府特別補佐人", "大臣政務官"}
 ATTENDANCE_SECTION_LABELS = {
     "国務大臣",
@@ -103,7 +103,26 @@ ROLE_TOKEN_SUFFIXES = (
     "ディレクター",
     "アドバイザー",
 )
-AGENDA_ITEM_END_MARKERS = ("法律案", "予算", "決算", "条約", "承認", "請求", "同意", "請願", "の件", "互選", "選任", "選挙", "辞職")
+AGENDA_ITEM_END_MARKERS = (
+    "法律案",
+    "予算",
+    "決算",
+    "条約",
+    "承認",
+    "請求",
+    "同意",
+    "請願",
+    "の件",
+    "関する件",
+    "互選",
+    "選任",
+    "選挙",
+    "辞職",
+    "挨拶",
+    "祝辞",
+    "謝辞",
+    "報告聴取",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -236,17 +255,16 @@ def append_wrapped_metadata_item(items: list[str], raw_line: str) -> None:
     text = compact_line(raw_line).lstrip("○")
     if not text:
         return
+    if set(text) <= SEPARATOR_CHARS:
+        return
 
     is_circle_item = raw_line.lstrip().startswith("○")
     is_numbered_item = re.match(r"^[一二三四五六七八九十百千]+、", text) is not None
     is_schedule_item = re.match(r"^日程第[一二三四五六七八九十百千\d]+", text) is not None
-    leading_indent = len(re.match(r"^[\s\u3000]*", raw_line).group(0))
-    if items and not (is_circle_item or is_numbered_item or is_schedule_item) and leading_indent >= 2:
-        items[-1] = f"{items[-1]}{text}"
-        return
-
     is_self_contained_item = text.endswith(AGENDA_ITEM_END_MARKERS)
-    if items and not (is_circle_item or is_numbered_item or is_schedule_item or is_self_contained_item):
+    leading_indent = len(re.match(r"^[\s\u3000]*", raw_line).group(0))
+    starts_like_continuation = text.startswith(("（", "(", "及び", "並びに"))
+    if items and not (is_circle_item or is_numbered_item or is_schedule_item or is_self_contained_item) and leading_indent >= 2 and starts_like_continuation:
         items[-1] = f"{items[-1]}{text}"
         return
 

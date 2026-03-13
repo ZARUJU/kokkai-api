@@ -130,16 +130,22 @@ def api_get(path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any
         raise ApiRequestError(f"API のレスポンスが JSON ではありません: {url}") from exc
 
 
-def group_attendance_by_section(attendance: list[dict[str, Any]], house: str | None = None) -> list[dict[str, Any]]:
+def group_attendance_by_section(
+    attendance: list[dict[str, Any]], house: str | None = None
+) -> list[dict[str, Any]]:
     """出席者を section ごとにまとめてテンプレートへ渡す。"""
 
-    grouped: OrderedDict[str, OrderedDict[tuple[str, str | None], list[str]]] = OrderedDict()
+    grouped: OrderedDict[str, OrderedDict[tuple[str, str | None], list[str]]] = (
+        OrderedDict()
+    )
     default_section = "出席委員" if house == "衆議院" else "出席者"
     for item in attendance:
         section = item.get("section") or default_section
         role = item.get("role") or "出席者"
         title = item.get("title")
-        grouped.setdefault(section, OrderedDict()).setdefault((role, title), []).append(item.get("name", ""))
+        grouped.setdefault(section, OrderedDict()).setdefault((role, title), []).append(
+            item.get("name", "")
+        )
 
     result = []
     for section, role_groups in grouped.items():
@@ -204,7 +210,9 @@ def slugify_label(value: str) -> str:
     return text.strip("-").lower() or "section"
 
 
-def group_relations_by_session(relations: list[dict[str, Any]], session_field: str) -> list[dict[str, Any]]:
+def group_relations_by_session(
+    relations: list[dict[str, Any]], session_field: str
+) -> list[dict[str, Any]]:
     """人物関連データを回次ごとにまとめる。"""
 
     grouped: dict[int | None, list[dict[str, Any]]] = {}
@@ -212,7 +220,9 @@ def group_relations_by_session(relations: list[dict[str, Any]], session_field: s
         session = relation.get(session_field)
         grouped.setdefault(session, []).append(relation)
 
-    ordered_sessions = sorted((session for session in grouped if session is not None), reverse=True)
+    ordered_sessions = sorted(
+        (session for session in grouped if session is not None), reverse=True
+    )
     if None in grouped:
         ordered_sessions.append(None)
 
@@ -250,10 +260,12 @@ def kaiki_index():
     available_gian_sessions = set(meta["available_gian_sessions"])
     available_kaigiroku_sessions = set(meta.get("available_kaigiroku_sessions", []))
     available_seigan_sessions = {
-        house: set(sessions) for house, sessions in meta["available_seigan_sessions"].items()
+        house: set(sessions)
+        for house, sessions in meta["available_seigan_sessions"].items()
     }
     available_shitsumon_sessions = {
-        house: set(sessions) for house, sessions in meta["available_shitsumon_sessions"].items()
+        house: set(sessions)
+        for house, sessions in meta["available_shitsumon_sessions"].items()
     }
     kaigiroku_counts: dict[int, int] = {}
     for session in sorted(available_kaigiroku_sessions):
@@ -273,10 +285,14 @@ def kaiki_index():
                 "links": {
                     "gian": session_number in available_gian_sessions,
                     "kaigiroku": session_number in available_kaigiroku_sessions,
-                    "seigan_shugiin": session_number in available_seigan_sessions.get("shugiin", set()),
-                    "seigan_sangiin": session_number in available_seigan_sessions.get("sangiin", set()),
-                    "shitsumon_shugiin": session_number in available_shitsumon_sessions.get("shugiin", set()),
-                    "shitsumon_sangiin": session_number in available_shitsumon_sessions.get("sangiin", set()),
+                    "seigan_shugiin": session_number
+                    in available_seigan_sessions.get("shugiin", set()),
+                    "seigan_sangiin": session_number
+                    in available_seigan_sessions.get("sangiin", set()),
+                    "shitsumon_shugiin": session_number
+                    in available_shitsumon_sessions.get("shugiin", set()),
+                    "shitsumon_sangiin": session_number
+                    in available_shitsumon_sessions.get("sangiin", set()),
                 },
             }
         )
@@ -296,7 +312,9 @@ def people_index():
     query = request.args.get("q", "").strip()
     try:
         if query:
-            results = api_get("/v1/people/search", params={"q": query, "limit": 30, "offset": 0})
+            results = api_get(
+                "/v1/people/search", params={"q": query, "limit": 30, "offset": 0}
+            )
             return render_template(
                 "people_search.html",
                 title="人物検索",
@@ -331,11 +349,21 @@ def person_detail(person_key: str):
         "person_detail.html",
         title=person["canonical_name"],
         person=person,
-        gian_groups=group_relations_by_session(person["gian_relations"], "submitted_session"),
-        seigan_groups=group_relations_by_session(person["seigan_relations"], "session_number"),
-        shitsumon_groups=group_relations_by_session(person["shitsumon_relations"], "session_number"),
-        meeting_groups=group_relations_by_session(person.get("meeting_relations", []), "session"),
-        speaking_meeting_groups=group_relations_by_session(person.get("speaking_meeting_relations", []), "session"),
+        gian_groups=group_relations_by_session(
+            person["gian_relations"], "submitted_session"
+        ),
+        seigan_groups=group_relations_by_session(
+            person["seigan_relations"], "session_number"
+        ),
+        shitsumon_groups=group_relations_by_session(
+            person["shitsumon_relations"], "session_number"
+        ),
+        meeting_groups=group_relations_by_session(
+            person.get("meeting_relations", []), "session"
+        ),
+        speaking_meeting_groups=group_relations_by_session(
+            person.get("speaking_meeting_relations", []), "session"
+        ),
     )
 
 
@@ -348,8 +376,12 @@ def gian_index():
         sessions = session_index["sessions"]
         requested_session = request.args.get("session", type=int)
         default_session = sessions[-1] if sessions else 0
-        selected_session = requested_session if requested_session in sessions else default_session
-        dataset = api_get(f"/v1/gian/list/{selected_session}") if sessions else {"items": []}
+        selected_session = (
+            requested_session if requested_session in sessions else default_session
+        )
+        dataset = (
+            api_get(f"/v1/gian/list/{selected_session}") if sessions else {"items": []}
+        )
     except ApiRequestError as exc:
         return render_api_error(exc)
 
@@ -402,8 +434,14 @@ def kaigiroku_index():
         sessions = session_index["sessions"]
         requested_session = request.args.get("session", type=int)
         default_session = sessions[-1] if sessions else 0
-        selected_session = requested_session if requested_session in sessions else default_session
-        dataset = api_get(f"/v1/kaigiroku/list/{selected_session}") if sessions else {"items": []}
+        selected_session = (
+            requested_session if requested_session in sessions else default_session
+        )
+        dataset = (
+            api_get(f"/v1/kaigiroku/list/{selected_session}")
+            if sessions
+            else {"items": []}
+        )
     except ApiRequestError as exc:
         return render_api_error(exc)
 
@@ -444,7 +482,9 @@ def kaigiroku_detail(issue_id: str):
         "kaigiroku_detail.html",
         title=f"{meeting['name_of_meeting']} {meeting['issue']}",
         meeting=meeting,
-        grouped_attendance=group_attendance_by_section(meeting.get("attendance", []), meeting.get("name_of_house")),
+        grouped_attendance=group_attendance_by_section(
+            meeting.get("attendance", []), meeting.get("name_of_house")
+        ),
     )
 
 
@@ -458,18 +498,28 @@ def seigan_index(house: str):
         sessions = session_index["sessions"]
         requested_session = request.args.get("session", type=int)
         default_session = sessions[-1] if sessions else 0
-        selected_session = requested_session if requested_session in sessions else default_session
-        dataset = api_get(f"/v1/seigan/{house}/list/{selected_session}") if sessions else {"items": []}
+        selected_session = (
+            requested_session if requested_session in sessions else default_session
+        )
+        dataset = (
+            api_get(f"/v1/seigan/{house}/list/{selected_session}")
+            if sessions
+            else {"items": []}
+        )
     except ApiRequestError as exc:
         return render_api_error(exc)
 
     items = []
     for item in dataset.get("items", []):
         enriched_item = dict(item)
-        enriched_item["petition_id"] = build_petition_id(house, selected_session, item["petition_number"])
+        enriched_item["petition_id"] = build_petition_id(
+            house, selected_session, item["petition_number"]
+        )
         items.append(enriched_item)
 
-    committee_counts = Counter(item.get("committee_name") or "委員会不明" for item in items)
+    committee_counts = Counter(
+        item.get("committee_name") or "委員会不明" for item in items
+    )
     referred_count = sum(1 for item in items if item.get("is_referred"))
 
     grouped_items: dict[str, list[dict[str, Any]]] = {}
@@ -529,18 +579,28 @@ def shitsumon_index(house: str):
         sessions = session_index["sessions"]
         requested_session = request.args.get("session", type=int)
         default_session = sessions[-1] if sessions else 0
-        selected_session = requested_session if requested_session in sessions else default_session
-        dataset = api_get(f"/v1/shitsumon/{house}/list/{selected_session}") if sessions else {"items": []}
+        selected_session = (
+            requested_session if requested_session in sessions else default_session
+        )
+        dataset = (
+            api_get(f"/v1/shitsumon/{house}/list/{selected_session}")
+            if sessions
+            else {"items": []}
+        )
     except ApiRequestError as exc:
         return render_api_error(exc)
 
     items = []
     for item in dataset.get("items", []):
         enriched_item = dict(item)
-        enriched_item["question_id"] = build_question_id(house, selected_session, item["question_number"])
+        enriched_item["question_id"] = build_question_id(
+            house, selected_session, item["question_number"]
+        )
         items.append(enriched_item)
 
-    submitter_counts = Counter(item.get("submitter_name") or "提出者不明" for item in items)
+    submitter_counts = Counter(
+        item.get("submitter_name") or "提出者不明" for item in items
+    )
     submitter_summary = [
         {
             "submitter_name": submitter_name,
@@ -599,7 +659,7 @@ def shitsumon_detail(house: str, question_id: str):
 
 if __name__ == "__main__":
     app.run(
-        host=os.getenv("FLASK_HOST", "127.0.0.1"),
+        host=os.getenv("FLASK_HOST", "0.0.0.0"),
         port=int(os.getenv("FLASK_PORT", "5001")),
         debug=False,
     )
