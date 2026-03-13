@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -38,6 +39,8 @@ REQUEST_HEADERS = {
     "User-Agent": "kokkai-api/0.1 (+https://www.shugiin.go.jp/)",
 }
 logger = logging.getLogger(__name__)
+FETCHED_HTML_CACHE: dict[str, str] = {}
+EXISTING_PROGRESS_HTML_BY_URL: dict[str, Path] | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -69,6 +72,24 @@ def fetch_html(url: str) -> str:
     return response.text
 
 
+def build_existing_progress_html_index(output_root: Path = OUTPUT_ROOT) -> dict[str, Path]:
+    """保存済み進捗JSONから source_url と raw HTML の対応表を作る。"""
+
+    index: dict[str, Path] = {}
+    for json_path in output_root.glob("*/progress/*.json"):
+        html_path = json_path.with_suffix(".html")
+        if not html_path.exists():
+            continue
+        try:
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        source_url = payload.get("source_url")
+        if isinstance(source_url, str) and source_url not in index:
+            index[source_url] = html_path
+    return index
+
+
 def save_progress_html(
     bill_id: str,
     session: int,
@@ -86,9 +107,13 @@ def save_progress_html(
 def process_session(session: int, skip_existing: bool = False) -> list[Path]:
     """指定回次の進捗ページ raw HTML を一括取得して保存する。"""
 
+    global EXISTING_PROGRESS_HTML_BY_URL
+
     gian_list = load_gian_list(session)
     logger.info("進捗HTML取得開始: session=%s items=%s", session, len(gian_list.items))
     saved_paths: list[Path] = []
+    if skip_existing and EXISTING_PROGRESS_HTML_BY_URL is None:
+        EXISTING_PROGRESS_HTML_BY_URL = build_existing_progress_html_index()
     for item in gian_list.items:
         if item.progress_url is None:
             logger.info("スキップ: progress_urlなし title=%s", item.title)
@@ -105,7 +130,18 @@ def process_session(session: int, skip_existing: bool = False) -> list[Path]:
             logger.info("スキップ: 既存ファイルあり bill_id=%s path=%s", bill_id, output_path)
             saved_paths.append(output_path)
             continue
-        html = fetch_html(str(item.progress_url))
+        progress_url = str(item.progress_url)
+        if progress_url in FETCHED_HTML_CACHE:
+            html = FETCHED_HTML_CACHE[progress_url]
+            logger.info("再利用: 同一URLの取得結果を使用 bill_id=%s url=%s", bill_id, progress_url)
+        elif skip_existing and EXISTING_PROGRESS_HTML_BY_URL and progress_url in EXISTING_PROGRESS_HTML_BY_URL:
+            source_path = EXISTING_PROGRESS_HTML_BY_URL[progress_url]
+            html = source_path.read_text(encoding="utf-8")
+            FETCHED_HTML_CACHE[progress_url] = html
+            logger.info("再利用: 保存済み進捗HTMLを使用 bill_id=%s source=%s", bill_id, source_path)
+        else:
+            html = fetch_html(progress_url)
+            FETCHED_HTML_CACHE[progress_url] = html
         output_path = save_progress_html(bill_id=bill_id, session=session, html=html)
         logger.info("保存: bill_id=%s path=%s", bill_id, output_path)
         saved_paths.append(output_path)

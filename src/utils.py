@@ -327,6 +327,8 @@ def parse_japanese_time(value: str) -> time | None:
         hour += 12
     if match.group("ampm") == "午前" and hour == 12:
         hour = 0
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
     return time(hour=hour, minute=minute)
 
 

@@ -2,6 +2,7 @@
 
 引数:
     - session: 取得対象の国会回次
+    - --skip-existing: 保存先JSONが既にある場合はパースをスキップ
 
 入力:
     - tmp/kaigiroku/meeting/{session}.json
@@ -45,6 +46,7 @@ from src.utils import (
     parse_japanese_date,
     parse_japanese_date_with_default_year,
     parse_japanese_time,
+    should_skip_existing,
 )
 
 INPUT_DIR = Path("tmp/kaigiroku/meeting")
@@ -130,6 +132,11 @@ def parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(description="指定した回次の会議録JSONからメタデータを抽出する")
     parser.add_argument("session", type=int, help="取得対象の国会回次")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="保存先JSONが既にある場合はパースをスキップする",
+    )
     return parser.parse_args()
 
 
@@ -163,6 +170,13 @@ def is_month_day_line(line: str) -> bool:
     """`十二月十六日` のような日付行かを判定する。"""
 
     return re.fullmatch(r"[〇零一二三四五六七八九十\d]+\s*月\s*[〇零一二三四五六七八九十\d]+\s*日", line) is not None
+
+
+def is_agenda_section_header(line: str) -> bool:
+    """`本日の会議に付した事件` などの案件見出しかを判定する。"""
+
+    normalized = line.lstrip("○●").replace(" ", "")
+    return normalized in {"本日の会議に付した案件", "本日の会議に付した事件", "本日の開議に付した事件"}
 
 
 def has_upcoming_referred_marker(lines: list[str], start_index: int) -> bool:
@@ -369,7 +383,7 @@ def parse_intro_metadata(text: str, house: str) -> KokkaiMeetingMetadataParsed:
             current_role = None
             pending_prefix = ""
             continue
-        if line.endswith("本日の会議に付した案件"):
+        if is_agenda_section_header(line):
             block = "agenda"
             current_section = None
             current_role = None
@@ -512,8 +526,13 @@ def save_dataset(dataset: KokkaiMeetingParsedDataset, output_dir: Path = OUTPUT_
     return output_path
 
 
-def process_session(session: int) -> Path:
+def process_session(session: int, skip_existing: bool = False, output_dir: Path = OUTPUT_DIR) -> Path:
     """指定回次の raw JSON からメタデータ抽出結果を保存する。"""
+
+    output_path = output_dir / f"{session}.json"
+    if should_skip_existing(output_path, skip_existing):
+        logger.info("スキップ: 既存ファイルあり session=%s path=%s", session, output_path)
+        return output_path
 
     raw_dataset = load_dataset(session)
     logger.info("会議録メタデータ抽出開始: session=%s items=%s", session, len(raw_dataset.items))
@@ -525,7 +544,7 @@ def process_session(session: int) -> Path:
         total_records=raw_dataset.total_records,
         items=[build_parsed_item(item) for item in raw_dataset.items],
     )
-    output_path = save_dataset(dataset=dataset)
+    output_path = save_dataset(dataset=dataset, output_dir=output_dir)
     logger.info("保存: session=%s path=%s items=%s", session, output_path, len(dataset.items))
     logger.info("会議録メタデータ抽出完了: session=%s", session)
     return output_path
@@ -536,7 +555,7 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args()
-    process_session(args.session)
+    process_session(args.session, skip_existing=args.skip_existing)
 
 
 if __name__ == "__main__":

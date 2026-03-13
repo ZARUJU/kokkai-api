@@ -152,7 +152,7 @@ def parse_number_and_type(value: str) -> tuple[int | None, str | None]:
     """`第221回（特別会）` のような文字列から回次と種別を抽出する。"""
 
     text = normalize_text(value)
-    match = re.search(r"第\s*(\d+)\s*回(?:（(.+?)）)?", text)
+    match = re.search(r"第\s*(\d+)\s*回(?:\s*[（(]\s*(.+?)\s*[）)])?", text)
     if not match:
         return parse_int(text), None
     return int(match.group(1)), match.group(2)

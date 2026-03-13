@@ -39,7 +39,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.models import SangiinShitsumonItem, SangiinShitsumonListDataset
 from src.utils import normalize_text, parse_int
 
-SOURCE_URL_TEMPLATE = "https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/{session}/syuisyo.htm"
+SOURCE_URL_TEMPLATE = "https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/{session:03d}/syuisyo.htm"
 INPUT_DIR = Path("tmp/shitsumon/sangiin/list")
 OUTPUT_DIR = Path("tmp/shitsumon/sangiin/list")
 logger = logging.getLogger(__name__)

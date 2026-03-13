@@ -61,6 +61,7 @@ from src.pipeline.shitsumon import parse_shugiin_shitsumon_detail, parse_shugiin
 DEFAULT_LATEST_COUNT = 2
 KAIKI_PATH = Path("data/kaiki.json")
 GIAN_LIST_JSON_DIR = Path("tmp/gian/list")
+KAIGIROKU_MEETING_DIR = Path("tmp/kaigiroku/meeting")
 KAIGIROKU_PARSED_DIR = Path("tmp/kaigiroku/parsed")
 SHUGIIN_SHITSUMON_LIST_HTML_DIR = Path("tmp/shitsumon/shugiin/list")
 SANGIIN_SHITSUMON_LIST_HTML_DIR = Path("tmp/shitsumon/sangiin/list")
@@ -225,9 +226,12 @@ def run_kaigiroku_pipeline(session: int, skip_existing: bool, parse_only: bool =
     """会議録 API パイプラインを1回次分実行する。"""
 
     logger.info("会議録処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if parse_only and not (KAIGIROKU_MEETING_DIR / f"{session}.json").exists():
+        logger.warning("会議録raw JSONがないため parse-only をスキップ: session=%s", session)
+        return
     if not parse_only:
         get_meeting_records.process_session(session, skip_existing=skip_existing)
-    parse_meeting_records.process_session(session)
+    parse_meeting_records.process_session(session, skip_existing=skip_existing)
     logger.info("会議録処理完了: session=%s", session)
 
 

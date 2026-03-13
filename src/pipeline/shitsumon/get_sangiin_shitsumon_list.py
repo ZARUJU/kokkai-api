@@ -30,7 +30,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.utils import should_skip_existing
 
-SOURCE_URL_TEMPLATE = "https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/{session}/syuisyo.htm"
+SOURCE_URL_TEMPLATE = "https://www.sangiin.go.jp/japanese/joho1/kousei/syuisyo/{session:03d}/syuisyo.htm"
 OUTPUT_DIR = Path("tmp/shitsumon/sangiin/list")
 REQUEST_HEADERS = {
     "User-Agent": "kokkai-api/0.1 (+https://www.sangiin.go.jp/)",

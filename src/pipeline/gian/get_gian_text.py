@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -37,6 +38,9 @@ REQUEST_HEADERS = {
     "User-Agent": "kokkai-api/0.1 (+https://www.shugiin.go.jp/)",
 }
 logger = logging.getLogger(__name__)
+FETCHED_HTML_CACHE: dict[str, str] = {}
+EXISTING_TEXT_HTML_BY_URL: dict[str, Path] | None = None
+EXISTING_DOCUMENT_HTML_BY_FILENAME: dict[str, Path] | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -66,6 +70,34 @@ def fetch_html(url: str) -> str:
     response.raise_for_status()
     response.encoding = response.apparent_encoding or response.encoding
     return response.text
+
+
+def build_existing_text_html_index(detail_root: Path = DETAIL_ROOT) -> dict[str, Path]:
+    """保存済み本文JSONから source_url と raw HTML の対応表を作る。"""
+
+    index: dict[str, Path] = {}
+    for json_path in detail_root.glob("*/honbun/index.json"):
+        html_path = json_path.with_name("index.html")
+        if not html_path.exists():
+            continue
+        try:
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        source_url = payload.get("source_url")
+        if isinstance(source_url, str) and source_url not in index:
+            index[source_url] = html_path
+    return index
+
+
+def build_existing_document_html_index(detail_root: Path = DETAIL_ROOT) -> dict[str, Path]:
+    """保存済み関連文書 HTML のファイル名とパスの対応表を作る。"""
+
+    index: dict[str, Path] = {}
+    for path in detail_root.glob("*/honbun/documents/*.html"):
+        if path.name not in index:
+            index[path.name] = path
+    return index
 
 
 def extract_document_urls(html: str, base_url: str) -> list[str]:
@@ -103,9 +135,16 @@ def save_document_html(bill_id: str, url: str, html: str, detail_root: Path = DE
 def process_session(session: int, skip_existing: bool = False) -> list[Path]:
     """指定回次の本文ページと関連文書 HTML を取得して保存する。"""
 
+    global EXISTING_DOCUMENT_HTML_BY_FILENAME
+    global EXISTING_TEXT_HTML_BY_URL
+
     gian_list = load_gian_list(session)
     logger.info("本文HTML取得開始: session=%s items=%s", session, len(gian_list.items))
     saved_paths: list[Path] = []
+    if skip_existing and EXISTING_TEXT_HTML_BY_URL is None:
+        EXISTING_TEXT_HTML_BY_URL = build_existing_text_html_index()
+    if skip_existing and EXISTING_DOCUMENT_HTML_BY_FILENAME is None:
+        EXISTING_DOCUMENT_HTML_BY_FILENAME = build_existing_document_html_index()
     for item in gian_list.items:
         if item.text_url is None:
             logger.info("スキップ: text_urlなし title=%s", item.title)
@@ -125,7 +164,18 @@ def process_session(session: int, skip_existing: bool = False) -> list[Path]:
             logger.info("スキップ: 既存ファイルあり bill_id=%s path=%s", bill_id, text_path)
             saved_paths.append(text_path)
         else:
-            text_html = fetch_html(str(item.text_url))
+            text_url = str(item.text_url)
+            if text_url in FETCHED_HTML_CACHE:
+                text_html = FETCHED_HTML_CACHE[text_url]
+                logger.info("再利用: 同一URLの取得結果を使用 bill_id=%s url=%s", bill_id, text_url)
+            elif skip_existing and EXISTING_TEXT_HTML_BY_URL and text_url in EXISTING_TEXT_HTML_BY_URL:
+                source_path = EXISTING_TEXT_HTML_BY_URL[text_url]
+                text_html = source_path.read_text(encoding="utf-8")
+                FETCHED_HTML_CACHE[text_url] = text_html
+                logger.info("再利用: 保存済み本文HTMLを使用 bill_id=%s source=%s", bill_id, source_path)
+            else:
+                text_html = fetch_html(text_url)
+                FETCHED_HTML_CACHE[text_url] = text_html
             text_path = save_text_html(bill_id=bill_id, html=text_html)
             saved_paths.append(text_path)
             logger.info("保存: bill_id=%s path=%s", bill_id, text_path)
@@ -137,7 +187,21 @@ def process_session(session: int, skip_existing: bool = False) -> list[Path]:
                 logger.info("スキップ: 既存ファイルあり bill_id=%s path=%s", bill_id, document_path)
                 saved_paths.append(document_path)
                 continue
-            document_html = fetch_html(document_url)
+            if document_url in FETCHED_HTML_CACHE:
+                document_html = FETCHED_HTML_CACHE[document_url]
+                logger.info("再利用: 同一URLの取得結果を使用 bill_id=%s url=%s", bill_id, document_url)
+            elif (
+                skip_existing
+                and EXISTING_DOCUMENT_HTML_BY_FILENAME
+                and filename in EXISTING_DOCUMENT_HTML_BY_FILENAME
+            ):
+                source_path = EXISTING_DOCUMENT_HTML_BY_FILENAME[filename]
+                document_html = source_path.read_text(encoding="utf-8")
+                FETCHED_HTML_CACHE[document_url] = document_html
+                logger.info("再利用: 保存済み関連文書HTMLを使用 bill_id=%s source=%s", bill_id, source_path)
+            else:
+                document_html = fetch_html(document_url)
+                FETCHED_HTML_CACHE[document_url] = document_html
             document_path = save_document_html(bill_id=bill_id, url=document_url, html=document_html)
             saved_paths.append(document_path)
             logger.info("保存: bill_id=%s path=%s", bill_id, document_path)
