@@ -2,7 +2,7 @@
 
 import hashlib
 import re
-from datetime import date
+from datetime import date, time
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
@@ -75,6 +75,39 @@ def normalize_text(value: str) -> str:
     value = value.replace("\xa0", " ")
     value = re.sub(r"\s+", " ", value)
     return value.strip()
+
+
+def strip_agenda_item_prefix(value: str) -> str:
+    """案件見出し先頭の番号や日程ラベルを除去する。"""
+
+    text = normalize_text(value).lstrip("○")
+    text = re.sub(r"^[一二三四五六七八九十百千]+、", "", text)
+    text = re.sub(r"^日程第[一二三四五六七八九十百千\d]+(?:及び第[一二三四五六七八九十百千\d]+)*\s*", "", text)
+    return text.strip()
+
+
+def normalize_bill_match_text(value: str) -> str:
+    """議案名照合向けに案件文を正規化する。"""
+
+    text = strip_agenda_item_prefix(value)
+    text = re.sub(r"（[^）]*提出[^）]*）", "", text)
+    text = re.sub(r"（[^）]*衆法[^）]*）", "", text)
+    text = re.sub(r"（[^）]*参法[^）]*）", "", text)
+    text = re.sub(r"（[^）]*閣法[^）]*）", "", text)
+    text = re.sub(r"（趣旨説明）", "", text)
+    text = re.sub(r"（予）", "", text)
+    text = re.sub(r"\s+", "", text)
+    return text.strip()
+
+
+def normalize_petition_match_text(value: str) -> str:
+    """請願名照合向けに案件文を正規化する。"""
+
+    text = strip_agenda_item_prefix(value)
+    text = re.sub(r"外[〇零一二三四五六七八九十百千\d]+件の請願$", "請願", text)
+    text = re.sub(r"（第[^）]*号[^）]*）", "", text)
+    text = re.sub(r"\s+", "", text)
+    return text.strip()
 
 
 def strip_name_honorific(value: str) -> str:
@@ -182,6 +215,57 @@ def parse_japanese_date(value: str) -> date | None:
         return None
     year = ERA_OFFSETS[era.group("era")] + era_year
     return date(year, month, day)
+
+
+def parse_japanese_date_with_default_year(value: str, default_year: int) -> date | None:
+    """年が省略された `十二月十六日` のような表記を既定年つきで解釈する。"""
+
+    text = normalize_text(value)
+    parsed = parse_japanese_date(text)
+    if parsed is not None:
+        return parsed
+
+    match = re.search(
+        r"(?P<month>\d{1,2}|[〇零一二三四五六七八九十]+)\s*月\s*(?P<day>\d{1,2}|[〇零一二三四五六七八九十]+)\s*日",
+        text,
+    )
+    if not match:
+        return None
+
+    month = parse_japanese_number(match.group("month"))
+    day = parse_japanese_number(match.group("day"))
+    if month is None or day is None:
+        return None
+    return date(default_year, month, day)
+
+
+def parse_japanese_time(value: str) -> time | None:
+    """`午前十時四分` や `午後一時三十分` のような表記を `time` に変換する。"""
+
+    text = normalize_text(value)
+    if "正午" in text:
+        return time(hour=12, minute=0)
+
+    match = re.search(
+        (
+            r"(?P<ampm>午前|午後)\s*"
+            r"(?P<hour>\d{1,2}|[〇零一二三四五六七八九十]+)\s*時"
+            r"(?:\s*(?P<minute>\d{1,2}|[〇零一二三四五六七八九十]+)\s*分)?"
+        ),
+        text,
+    )
+    if not match:
+        return None
+
+    hour = parse_japanese_number(match.group("hour"))
+    minute = parse_japanese_number(match.group("minute") or "0")
+    if hour is None or minute is None:
+        return None
+    if match.group("ampm") == "午後" and hour < 12:
+        hour += 12
+    if match.group("ampm") == "午前" and hour == 12:
+        hour = 0
+    return time(hour=hour, minute=minute)
 
 
 def slugify_japanese_label(value: str) -> str:

@@ -1,9 +1,13 @@
-"""会期一覧・議案・請願・質問主意書・人物インデックスの配布用 JSON を公開する FastAPI アプリケーション。
+"""会期一覧・会議録・議案・請願・質問主意書・人物インデックスの配布用 JSON を公開する FastAPI アプリケーション。
 
 主なエンドポイント:
     - GET /health
     - GET /meta
     - GET /v1/kaiki
+    - GET /v1/kaigiroku/list
+    - GET /v1/kaigiroku/list/{session}
+    - GET /v1/kaigiroku/detail
+    - GET /v1/kaigiroku/detail/{issue_id}
     - GET /v1/gian/list
     - GET /v1/gian/list/{session}
     - GET /v1/gian/detail
@@ -22,6 +26,8 @@
 
 入力:
     - data/kaiki.json
+    - data/kaigiroku/list/*.json
+    - data/kaigiroku/detail/*.json
     - data/gian/list/*.json
     - data/gian/detail/*.json
     - data/seigan/{house}/list/*.json
@@ -53,6 +59,8 @@ from src.models import (
     ApiSessionListResponse,
     DistributedGianDetailDataset,
     DistributedGianListDataset,
+    DistributedKokkaiMeetingDetailDataset,
+    DistributedKokkaiMeetingListDataset,
     DistributedPeopleDataset,
     DistributedPersonItem,
     DistributedSeiganDetailDataset,
@@ -68,6 +76,7 @@ API_VERSION = "v1"
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_ROOT = PROJECT_ROOT / "data"
 KAIKI_PATH = DATA_ROOT / "kaiki.json"
+KAIGIROKU_ROOT = DATA_ROOT / "kaigiroku"
 GIAN_LIST_DIR = DATA_ROOT / "gian" / "list"
 GIAN_DETAIL_DIR = DATA_ROOT / "gian" / "detail"
 SEIGAN_ROOT = DATA_ROOT / "seigan"
@@ -130,6 +139,22 @@ def load_gian_list(session: int) -> DistributedGianListDataset:
     """指定回次の議案一覧データを読み込む。"""
 
     return DistributedGianListDataset.model_validate_json(_read_json(GIAN_LIST_DIR / f"{session}.json"))
+
+
+@lru_cache(maxsize=256)
+def load_kaigiroku_list(session: int) -> DistributedKokkaiMeetingListDataset:
+    """指定回次の会議録一覧データを読み込む。"""
+
+    path = KAIGIROKU_ROOT / "list" / f"{session}.json"
+    return DistributedKokkaiMeetingListDataset.model_validate_json(_read_json(path))
+
+
+@lru_cache(maxsize=4096)
+def load_kaigiroku_detail(issue_id: str) -> DistributedKokkaiMeetingDetailDataset:
+    """指定会議録の個票を読み込む。"""
+
+    path = KAIGIROKU_ROOT / "detail" / f"{issue_id}.json"
+    return DistributedKokkaiMeetingDetailDataset.model_validate_json(_read_json(path))
 
 
 @lru_cache(maxsize=4096)
@@ -198,10 +223,28 @@ def list_available_gian_sessions() -> list[int]:
     return sessions
 
 
+def list_available_kaigiroku_sessions() -> list[int]:
+    """配布済み会議録一覧の回次一覧を返す。"""
+
+    sessions: list[int] = []
+    for path in sorted((KAIGIROKU_ROOT / "list").glob("*.json")):
+        try:
+            sessions.append(int(path.stem))
+        except ValueError:
+            continue
+    return sessions
+
+
 def list_available_bill_ids() -> list[str]:
     """配布済み議案個票の bill_id 一覧を返す。"""
 
     return sorted(path.stem for path in GIAN_DETAIL_DIR.glob("*.json"))
+
+
+def list_available_issue_ids() -> list[str]:
+    """配布済み会議録個票の issue_id 一覧を返す。"""
+
+    return sorted(path.stem for path in (KAIGIROKU_ROOT / "detail").glob("*.json"))
 
 
 def list_available_seigan_sessions(house: House) -> list[int]:
@@ -280,6 +323,10 @@ def build_meta() -> ApiMetaResponse:
     datasets_built_at = {
         "kaiki": load_kaiki().fetched_at,
         "people": people_dataset.built_at,
+        "kaigiroku_latest_list": max(
+            (load_kaigiroku_list(session).built_at for session in list_available_kaigiroku_sessions()),
+            default=None,
+        ),
         "gian_latest_list": max(
             (load_gian_list(session).built_at for session in list_available_gian_sessions()),
             default=None,
@@ -305,9 +352,11 @@ def build_meta() -> ApiMetaResponse:
         api_version=API_VERSION,
         datasets_built_at=datasets_built_at,
         available_gian_sessions=list_available_gian_sessions(),
+        available_kaigiroku_sessions=list_available_kaigiroku_sessions(),
         available_seigan_sessions={house.value: list_available_seigan_sessions(house) for house in House},
         available_shitsumon_sessions={house.value: list_available_shitsumon_sessions(house) for house in House},
         available_bill_count=len(list_available_bill_ids()),
+        available_kaigiroku_count=len(list_available_issue_ids()),
         available_petition_count=sum(len(list_available_petition_ids(house)) for house in House),
         available_people_count=len(people_dataset.items),
     )
@@ -325,6 +374,8 @@ def read_root() -> dict[str, object]:
         "openapi": "/openapi.json",
         "meta": "/meta",
         "v1": f"/{API_VERSION}",
+        "available_kaigiroku_sessions": meta.available_kaigiroku_sessions,
+        "available_kaigiroku_count": meta.available_kaigiroku_count,
         "available_gian_sessions": meta.available_gian_sessions,
         "available_bill_count": meta.available_bill_count,
         "available_seigan_sessions": meta.available_seigan_sessions,
@@ -353,6 +404,37 @@ def read_kaiki() -> KaikiDataset:
     """会期一覧データを返す。"""
 
     return load_kaiki()
+
+
+@router.get("/kaigiroku/list", response_model=ApiSessionListResponse)
+def read_kaigiroku_list_index() -> ApiSessionListResponse:
+    """利用可能な会議録一覧回次を返す。"""
+
+    return ApiSessionListResponse(sessions=list_available_kaigiroku_sessions())
+
+
+@router.get("/kaigiroku/list/{session}", response_model=DistributedKokkaiMeetingListDataset)
+def read_kaigiroku_list(session: int) -> DistributedKokkaiMeetingListDataset:
+    """指定回次の会議録一覧を返す。"""
+
+    return load_kaigiroku_list(session)
+
+
+@router.get("/kaigiroku/detail", response_model=ApiIdListResponse)
+def read_kaigiroku_detail_index(
+    limit: int = Query(100, ge=1, le=1000, description="返す issue_id 件数"),
+    offset: int = Query(0, ge=0, description="返却開始位置"),
+) -> ApiIdListResponse:
+    """利用可能な会議録個票 issue_id 一覧を返す。"""
+
+    return _paginate(list_available_issue_ids(), offset=offset, limit=limit)
+
+
+@router.get("/kaigiroku/detail/{issue_id}", response_model=DistributedKokkaiMeetingDetailDataset)
+def read_kaigiroku_detail_item(issue_id: str) -> DistributedKokkaiMeetingDetailDataset:
+    """指定会議録の個票を返す。"""
+
+    return load_kaigiroku_detail(issue_id)
 
 
 @router.get("/gian/list", response_model=ApiSessionListResponse)

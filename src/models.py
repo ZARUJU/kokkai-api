@@ -2,9 +2,18 @@ from __future__ import annotations
 
 """会期データの構造を定義する Pydantic モデル群。"""
 
+import datetime as dt
 from datetime import date, datetime
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_serializer
+
+
+def format_time_to_minute(value: dt.time | None) -> str | None:
+    """時刻を分単位の `HH:MM` 文字列に整形する。"""
+
+    if value is None:
+        return None
+    return value.strftime("%H:%M")
 
 
 class Kaiki(BaseModel):
@@ -459,6 +468,22 @@ class DistributedGianHonbunDocument(BaseModel):
     text: str
 
 
+class DistributedGianMeetingReference(BaseModel):
+    """議案が取り上げられた会議録1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    issue_id: str
+    session: int
+    name_of_house: str
+    name_of_meeting: str
+    issue: str
+    date: dt.date
+    meeting_url: AnyHttpUrl | None = None
+    pdf_url: AnyHttpUrl | None = None
+    agenda_text: str
+
+
 class DistributedGianDetailDataset(BaseModel):
     """配布用の議案個票を表すモデル。"""
 
@@ -474,6 +499,7 @@ class DistributedGianDetailDataset(BaseModel):
     session_statuses: list[DistributedGianSessionStatus]
     basic_info: DistributedGianBasicInfo
     progress: list[DistributedGianProgressRecord]
+    meetings: list[DistributedGianMeetingReference] = []
     honbun_source_url: AnyHttpUrl | None = None
     honbun_page_title: str | None = None
     honbun_documents: list[DistributedGianHonbunDocument]
@@ -515,6 +541,37 @@ class DistributedPersonSeiganRelation(BaseModel):
     session_number: int | None = None
 
 
+class DistributedPersonMeetingRelation(BaseModel):
+    """人物と会議録の関係1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    issue_id: str
+    session: int
+    name_of_house: str
+    name_of_meeting: str
+    issue: str
+    date: date
+    role: str | None = None
+    section: str | None = None
+
+
+class DistributedPersonSpeakingMeetingRelation(BaseModel):
+    """人物が発言した会議録との関係1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    issue_id: str
+    session: int
+    name_of_house: str
+    name_of_meeting: str
+    issue: str
+    date: date
+    speech_count: int = 1
+    speaker_role: str | None = None
+    speaker_position: str | None = None
+
+
 class DistributedPersonItem(BaseModel):
     """人物インデックスの1件を表すモデル。"""
 
@@ -526,6 +583,8 @@ class DistributedPersonItem(BaseModel):
     gian_relations: list[DistributedPersonGianRelation] = []
     seigan_relations: list[DistributedPersonSeiganRelation] = []
     shitsumon_relations: list[DistributedPersonShitsumonRelation] = []
+    meeting_relations: list[DistributedPersonMeetingRelation] = []
+    speaking_meeting_relations: list[DistributedPersonSpeakingMeetingRelation] = []
 
 
 class DistributedPeopleDataset(BaseModel):
@@ -570,6 +629,212 @@ class DistributedSeiganDetailDataset(BaseModel):
     built_at: datetime
 
 
+class KokkaiSpeechRecord(BaseModel):
+    """会議録 API の speechRecord 1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    speech_id: str | None = Field(default=None, alias="speechID")
+    issue_id: str | None = Field(default=None, alias="issueID")
+    image_kind: str | None = Field(default=None, alias="imageKind")
+    search_object: int | None = Field(default=None, alias="searchObject")
+    session: int | None = None
+    name_of_house: str | None = Field(default=None, alias="nameOfHouse")
+    name_of_meeting: str | None = Field(default=None, alias="nameOfMeeting")
+    issue: str | None = None
+    date: dt.date | None = None
+    closing: str | None = None
+    speech_order: int | None = Field(default=None, alias="speechOrder")
+    speaker: str | None = None
+    speaker_yomi: str | None = Field(default=None, alias="speakerYomi")
+    speaker_group: str | None = Field(default=None, alias="speakerGroup")
+    speaker_position: str | None = Field(default=None, alias="speakerPosition")
+    speaker_role: str | None = Field(default=None, alias="speakerRole")
+    speech: str | None = None
+    start_page: int | None = Field(default=None, alias="startPage")
+    create_time: dt.datetime | None = Field(default=None, alias="createTime")
+    update_time: dt.datetime | None = Field(default=None, alias="updateTime")
+    speech_url: AnyHttpUrl | None = Field(default=None, alias="speechURL")
+
+
+class KokkaiMeetingRecord(BaseModel):
+    """会議録 API の meetingRecord 1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    issue_id: str = Field(alias="issueID")
+    image_kind: str | None = Field(default=None, alias="imageKind")
+    search_object: int | None = Field(default=None, alias="searchObject")
+    session: int
+    name_of_house: str = Field(alias="nameOfHouse")
+    name_of_meeting: str = Field(alias="nameOfMeeting")
+    issue: str
+    date: dt.date
+    closing: str | None = None
+    speech_record: list[KokkaiSpeechRecord] = Field(default_factory=list, alias="speechRecord")
+    meeting_url: AnyHttpUrl | None = Field(default=None, alias="meetingURL")
+    pdf_url: AnyHttpUrl | None = Field(default=None, alias="pdfURL")
+
+
+class KokkaiMeetingApiDataset(BaseModel):
+    """会議録 API の回次単位取得結果全体を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_url: AnyHttpUrl
+    fetched_at: dt.datetime
+    session_number: int
+    total_records: int
+    items: list[KokkaiMeetingRecord]
+
+
+class KokkaiAttendanceEntry(BaseModel):
+    """会議冒頭から抽出した出席者1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    section: str | None = None
+    role: str | None = None
+    title: str | None = None
+    name: str
+
+
+class KokkaiMembershipChange(BaseModel):
+    """委員異動の1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    changed_at: dt.date | None = None
+    resigned_name: str | None = None
+    appointed_name: str | None = None
+
+
+class KokkaiMeetingMetadataParsed(BaseModel):
+    """会議冒頭・終盤から抽出した正規化メタデータを表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    meeting_date: dt.date | None = None
+    opening_line: str | None = None
+    opening_time: dt.time | None = None
+    closing_line: str | None = None
+    closing_time: dt.time | None = None
+    attendance: list[KokkaiAttendanceEntry] = []
+    membership_changes: list[KokkaiMembershipChange] = []
+    referred_items: list[str] = []
+    agenda_items: list[str] = []
+    intro_text: str | None = None
+    closing_text: str | None = None
+
+
+class KokkaiMeetingParsedItem(BaseModel):
+    """会議録1件に対する抽出済みメタデータ付き個票を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    issue_id: str
+    session: int
+    name_of_house: str
+    name_of_meeting: str
+    issue: str
+    date: dt.date
+    closing: str | None = None
+    meeting_url: AnyHttpUrl | None = None
+    pdf_url: AnyHttpUrl | None = None
+    speech_count: int
+    parsed: KokkaiMeetingMetadataParsed
+
+
+class KokkaiMeetingParsedDataset(BaseModel):
+    """回次単位の抽出済み会議録メタデータ全体を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_url: AnyHttpUrl
+    fetched_at: dt.datetime
+    parsed_at: dt.datetime
+    session_number: int
+    total_records: int
+    items: list[KokkaiMeetingParsedItem]
+
+
+class DistributedKokkaiAgendaItem(BaseModel):
+    """配布用の本日の案件1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    item_type: str | None = None
+    bill_id: str | None = None
+    bill_title: str | None = None
+    petition_id: str | None = None
+    petition_title: str | None = None
+
+
+class DistributedKokkaiMeetingListItem(BaseModel):
+    """配布用の会議録一覧1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    issue_id: str
+    session: int
+    name_of_house: str
+    name_of_meeting: str
+    issue: str
+    date: dt.date
+    meeting_url: AnyHttpUrl | None = None
+    pdf_url: AnyHttpUrl | None = None
+    opening_time: dt.time | None = None
+    closing_time: dt.time | None = None
+    speech_count: int
+    matched_item_count: int = 0
+
+    @field_serializer("opening_time", "closing_time", when_used="json")
+    def serialize_times(self, value: dt.time | None) -> str | None:
+        """開会・散会時刻を分単位で JSON 化する。"""
+
+        return format_time_to_minute(value)
+
+
+class DistributedKokkaiMeetingListDataset(BaseModel):
+    """配布用の会議録一覧データセットを表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_number: int
+    built_at: dt.datetime
+    items: list[DistributedKokkaiMeetingListItem]
+
+
+class DistributedKokkaiMeetingDetailDataset(BaseModel):
+    """配布用の会議録個票を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    issue_id: str
+    session: int
+    name_of_house: str
+    name_of_meeting: str
+    issue: str
+    date: dt.date
+    meeting_url: AnyHttpUrl | None = None
+    pdf_url: AnyHttpUrl | None = None
+    opening_line: str | None = None
+    opening_time: dt.time | None = None
+    closing_line: str | None = None
+    closing_time: dt.time | None = None
+    speech_count: int
+    attendance: list[KokkaiAttendanceEntry] = []
+    agenda_items: list[DistributedKokkaiAgendaItem] = []
+    built_at: dt.datetime
+
+    @field_serializer("opening_time", "closing_time", when_used="json")
+    def serialize_times(self, value: dt.time | None) -> str | None:
+        """開会・散会時刻を分単位で JSON 化する。"""
+
+        return format_time_to_minute(value)
+
+
 class ApiSessionListResponse(BaseModel):
     """回次一覧 API のレスポンスを表すモデル。"""
 
@@ -597,9 +862,11 @@ class ApiMetaResponse(BaseModel):
     api_version: str
     datasets_built_at: dict[str, datetime | None]
     available_gian_sessions: list[int]
+    available_kaigiroku_sessions: list[int]
     available_seigan_sessions: dict[str, list[int]]
     available_shitsumon_sessions: dict[str, list[int]]
     available_bill_count: int
+    available_kaigiroku_count: int
     available_petition_count: int
     available_people_count: int
 

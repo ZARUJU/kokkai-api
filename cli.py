@@ -15,9 +15,11 @@
 出力:
     - `data/kaiki.json`
     - `tmp/gian/**`
+    - `tmp/kaigiroku/**`
     - `tmp/seigan/**`
     - `tmp/shitsumon/**`
     - `data/gian/**`
+    - `data/kaigiroku/**`
     - `data/seigan/**`
     - `data/shitsumon/**`
     - `data/people/index.json`
@@ -40,6 +42,8 @@ from src.models import KaikiDataset
 from src.pipeline.gian import build_gian_distribution
 from src.pipeline.gian import get_gian_list, get_gian_progress, get_gian_text
 from src.pipeline.gian import parse_gian_list, parse_gian_progress, parse_gian_text
+from src.pipeline.kaigiroku import build_kaigiroku_distribution
+from src.pipeline.kaigiroku import get_meeting_records, parse_meeting_records
 from src.pipeline.kaiki import get_kaiki
 from src.pipeline.people import build_people_index
 from src.pipeline.seigan import build_seigan_distribution
@@ -55,6 +59,8 @@ from src.pipeline.shitsumon import parse_shugiin_shitsumon_detail, parse_shugiin
 
 DEFAULT_LATEST_COUNT = 2
 KAIKI_PATH = Path("data/kaiki.json")
+SHUGIIN_SEIGAN_LIST_HTML_DIR = Path("tmp/seigan/shugiin/list")
+SANGIIN_SEIGAN_LIST_HTML_DIR = Path("tmp/seigan/sangiin/list")
 logger = logging.getLogger(__name__)
 
 
@@ -79,18 +85,16 @@ def parse_args() -> argparse.Namespace:
 def load_or_fetch_kaiki(force: bool) -> KaikiDataset:
     """会期一覧を取得または既存 JSON から読み込む。"""
 
-    if force or not KAIKI_PATH.exists():
-        if not force and not KAIKI_PATH.exists():
-            raise FileNotFoundError(f"会期一覧が見つかりません: {KAIKI_PATH}")
-        logger.info("会期一覧更新開始: force=%s", force)
-        html = get_kaiki.fetch_html()
-        dataset = get_kaiki.build_dataset(html)
-        get_kaiki.save_dataset(dataset)
-        logger.info("会期一覧更新完了: path=%s items=%s", KAIKI_PATH, len(dataset.items))
-        return dataset
+    if KAIKI_PATH.exists() and not force:
+        logger.info("会期一覧は既存 JSON を再利用: path=%s", KAIKI_PATH)
+        return KaikiDataset.model_validate_json(KAIKI_PATH.read_text(encoding="utf-8"))
 
-    logger.info("会期一覧は既存 JSON を再利用: path=%s", KAIKI_PATH)
-    return KaikiDataset.model_validate_json(KAIKI_PATH.read_text(encoding="utf-8"))
+    logger.info("会期一覧更新開始: force=%s", force)
+    html = get_kaiki.fetch_html()
+    dataset = get_kaiki.build_dataset(html)
+    get_kaiki.save_dataset(dataset)
+    logger.info("会期一覧更新完了: path=%s items=%s", KAIKI_PATH, len(dataset.items))
+    return dataset
 
 
 def select_sessions(args: argparse.Namespace, kaiki_dataset: KaikiDataset) -> tuple[list[int], bool]:
@@ -145,6 +149,9 @@ def run_shugiin_seigan_pipeline(session: int, skip_existing: bool, parse_only: b
     """衆議院請願パイプラインを1回次分実行する。"""
 
     logger.info("衆議院請願処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if parse_only and not (SHUGIIN_SEIGAN_LIST_HTML_DIR / f"{session}.html").exists():
+        logger.warning("衆議院請願一覧HTMLがないため parse-only をスキップ: session=%s", session)
+        return
     if not parse_only:
         try:
             get_shugiin_seigan_list.process_session(session, skip_existing=skip_existing)
@@ -164,6 +171,9 @@ def run_sangiin_seigan_pipeline(session: int, skip_existing: bool, parse_only: b
     """参議院請願パイプラインを1回次分実行する。"""
 
     logger.info("参議院請願処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if parse_only and not (SANGIIN_SEIGAN_LIST_HTML_DIR / f"{session}.html").exists():
+        logger.warning("参議院請願一覧HTMLがないため parse-only をスキップ: session=%s", session)
+        return
     if not parse_only:
         try:
             get_sangiin_seigan_list.process_session(session, skip_existing=skip_existing)
@@ -192,12 +202,23 @@ def run_sangiin_shitsumon_pipeline(session: int, skip_existing: bool, parse_only
     logger.info("参議院質問主意書処理完了: session=%s", session)
 
 
+def run_kaigiroku_pipeline(session: int, skip_existing: bool, parse_only: bool = False) -> None:
+    """会議録 API パイプラインを1回次分実行する。"""
+
+    logger.info("会議録処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if not parse_only:
+        get_meeting_records.process_session(session, skip_existing=skip_existing)
+    parse_meeting_records.process_session(session)
+    logger.info("会議録処理完了: session=%s", session)
+
+
 def run_distribution_builders(sessions: list[int]) -> None:
     """配布用データを更新する。"""
 
     normalized_sessions = sorted(set(sessions))
     logger.info("配布データ生成開始: sessions=%s", normalized_sessions)
     build_gian_distribution.process_sessions(normalized_sessions)
+    build_kaigiroku_distribution.process_sessions(normalized_sessions)
     for house in build_seigan_distribution.HOUSE_CHOICES:
         build_seigan_distribution.process_house_sessions(house=house, sessions=normalized_sessions)
     for house in build_shitsumon_distribution.HOUSE_CHOICES:
@@ -211,8 +232,12 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args()
-    kaiki_dataset = load_or_fetch_kaiki(force=(args.force or not args.sessions) and not args.parse_only)
-    sessions, force = select_sessions(args, kaiki_dataset)
+    if args.sessions:
+        sessions = list(dict.fromkeys(args.sessions))
+        force = args.force
+    else:
+        kaiki_dataset = load_or_fetch_kaiki(force=not args.parse_only)
+        sessions, force = select_sessions(args, kaiki_dataset)
     skip_existing = not force
     if args.parse_only:
         skip_existing = True
@@ -220,6 +245,7 @@ def main() -> None:
     logger.info("対象回次: sessions=%s force=%s parse_only=%s", sessions, force, args.parse_only)
     for session in sessions:
         run_gian_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
+        run_kaigiroku_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
         run_shugiin_seigan_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
         run_sangiin_seigan_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
         run_shugiin_shitsumon_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
