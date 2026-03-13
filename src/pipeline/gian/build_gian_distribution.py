@@ -43,8 +43,10 @@ from src.models import (
     DistributedGianHonbunDocument,
     DistributedGianListDataset,
     DistributedGianListItem,
+    DistributedGianMeetingReference,
     DistributedGianProgressRecord,
     DistributedGianSessionStatus,
+    KokkaiMeetingParsedDataset,
     GianItem,
     GianListDataset,
     GianMemberLawExtraParsed,
@@ -52,10 +54,16 @@ from src.models import (
     GianProgressDataset,
 )
 from src.pipeline.gian.parse_gian_text import build_text_dataset
-from src.utils import build_gian_bill_id, split_person_and_count, strip_name_honorific
+from src.utils import (
+    build_gian_bill_id,
+    normalize_bill_match_text,
+    split_person_and_count,
+    strip_name_honorific,
+)
 
 INPUT_LIST_DIR = Path("tmp/gian/list")
 DETAIL_ROOT = Path("tmp/gian/detail")
+KAIGIROKU_INPUT_ROOT = Path("tmp/kaigiroku/parsed")
 OUTPUT_ROOT = Path("data/gian")
 logger = logging.getLogger(__name__)
 
@@ -243,6 +251,74 @@ def save_json(path: Path, payload: dict) -> Path:
     return path
 
 
+def build_bill_title_index(
+    bill_occurrences: dict[str, list[tuple[int, GianItem]]],
+) -> dict[str, tuple[str, str]]:
+    """議案個票候補からタイトル照合用インデックスを作る。"""
+
+    index: dict[str, tuple[str, str]] = {}
+    for bill_id, occurrences in bill_occurrences.items():
+        canonical_item = sorted(occurrences, key=lambda pair: pair[0])[-1][1]
+        normalized = normalize_bill_match_text(canonical_item.title)
+        if normalized and normalized not in index:
+            index[normalized] = (bill_id, canonical_item.title)
+    return index
+
+
+def link_bill_id_from_agenda_text(text: str, bill_index: dict[str, tuple[str, str]]) -> tuple[str | None, str | None]:
+    """会議録案件文から bill_id と議案名を推定する。"""
+
+    normalized = normalize_bill_match_text(text)
+    if not normalized:
+        return None, None
+    if normalized in bill_index:
+        return bill_index[normalized]
+    for candidate, value in bill_index.items():
+        if candidate and (normalized.startswith(candidate) or candidate.startswith(normalized)):
+            return value
+    return None, None
+
+
+def load_bill_meeting_references(
+    sessions: list[int],
+    bill_index: dict[str, tuple[str, str]],
+    kaigiroku_input_root: Path = KAIGIROKU_INPUT_ROOT,
+) -> dict[str, list[DistributedGianMeetingReference]]:
+    """会議録 parsed JSON から議案ごとの会議参照一覧を作る。"""
+
+    references: dict[str, list[DistributedGianMeetingReference]] = defaultdict(list)
+    for session in sessions:
+        path = kaigiroku_input_root / f"{session}.json"
+        if not path.exists():
+            continue
+        dataset = KokkaiMeetingParsedDataset.model_validate_json(path.read_text(encoding="utf-8"))
+        for item in dataset.items:
+            for agenda_text in item.parsed.agenda_items:
+                bill_id, _ = link_bill_id_from_agenda_text(agenda_text, bill_index)
+                if bill_id is None:
+                    continue
+                references[bill_id].append(
+                    DistributedGianMeetingReference(
+                        issue_id=item.issue_id,
+                        session=item.session,
+                        name_of_house=item.name_of_house,
+                        name_of_meeting=item.name_of_meeting,
+                        issue=item.issue,
+                        date=item.date,
+                        meeting_url=item.meeting_url,
+                        pdf_url=item.pdf_url,
+                        agenda_text=agenda_text,
+                    )
+                )
+
+    for bill_id, items in list(references.items()):
+        unique: dict[str, DistributedGianMeetingReference] = {}
+        for item in items:
+            unique[item.issue_id] = item
+        references[bill_id] = sorted(unique.values(), key=lambda entry: (entry.date, entry.issue_id))
+    return references
+
+
 def build_list_dataset(session: int, gian_list: GianListDataset, detail_root: Path = DETAIL_ROOT) -> DistributedGianListDataset:
     """会期別の配布用議案一覧を構築する。"""
 
@@ -275,6 +351,7 @@ def build_list_dataset(session: int, gian_list: GianListDataset, detail_root: Pa
 def build_detail_dataset(
     bill_id: str,
     occurrences: list[tuple[int, GianItem]],
+    meeting_references: list[DistributedGianMeetingReference] | None = None,
     detail_root: Path = DETAIL_ROOT,
 ) -> DistributedGianDetailDataset:
     """議案単位の配布用個票を構築する。"""
@@ -313,6 +390,7 @@ def build_detail_dataset(
         session_statuses=session_statuses,
         basic_info=build_basic_info(canonical_item, progress_datasets),
         progress=progress_records,
+        meetings=meeting_references or [],
         honbun_source_url=honbun_source_url,
         honbun_page_title=honbun_page_title,
         honbun_documents=honbun_documents,
@@ -336,8 +414,15 @@ def process_sessions(sessions: list[int], input_dir: Path = INPUT_LIST_DIR, outp
         for item in gian_list.items:
             bill_occurrences[build_bill_id(item)].append((session, item))
 
+    bill_index = build_bill_title_index(bill_occurrences)
+    meeting_references = load_bill_meeting_references(sessions=sessions, bill_index=bill_index)
+
     for bill_id in sorted(bill_occurrences):
-        detail_dataset = build_detail_dataset(bill_id=bill_id, occurrences=bill_occurrences[bill_id])
+        detail_dataset = build_detail_dataset(
+            bill_id=bill_id,
+            occurrences=bill_occurrences[bill_id],
+            meeting_references=meeting_references.get(bill_id, []),
+        )
         detail_path = output_root / "detail" / f"{bill_id}.json"
         save_json(detail_path, detail_dataset.model_dump(mode="json"))
         logger.info("個票保存: bill_id=%s path=%s", bill_id, detail_path)

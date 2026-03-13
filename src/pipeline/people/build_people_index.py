@@ -8,6 +8,8 @@
     - data/seigan/{house}/detail/*.json
     - data/shitsumon/shugiin/detail/*.json
     - data/shitsumon/sangiin/detail/*.json
+    - data/kaigiroku/detail/*.json
+    - tmp/kaigiroku/meeting/*.json
 
 出力:
     - data/people/index.json
@@ -18,6 +20,7 @@
     - 議案との関係
     - 請願との関係
     - 質問主意書との関係
+    - 出席会議との関係
 """
 
 from __future__ import annotations
@@ -35,12 +38,16 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.models import (
     DistributedGianDetailDataset,
+    DistributedKokkaiMeetingDetailDataset,
     DistributedPeopleDataset,
     DistributedPersonGianRelation,
+    DistributedPersonMeetingRelation,
+    DistributedPersonSpeakingMeetingRelation,
     DistributedPersonItem,
     DistributedPersonSeiganRelation,
     DistributedPersonShitsumonRelation,
     DistributedSeiganDetailDataset,
+    KokkaiMeetingApiDataset,
     SangiinShitsumonDetailDataset,
     ShugiinShitsumonDetailDataset,
 )
@@ -49,6 +56,8 @@ from src.utils import normalize_person_name, normalize_text
 GIAN_DETAIL_DIR = Path("data/gian/detail")
 SEIGAN_ROOT = Path("data/seigan")
 SHITSUMON_ROOT = Path("data/shitsumon")
+KAIGIROKU_DETAIL_DIR = Path("data/kaigiroku/detail")
+KAIGIROKU_MEETING_DIR = Path("tmp/kaigiroku/meeting")
 OUTPUT_PATH = Path("data/people/index.json")
 logger = logging.getLogger(__name__)
 
@@ -68,7 +77,7 @@ def save_json(path: Path, payload: dict) -> Path:
 
 
 def relation_sort_key(
-    relation: DistributedPersonGianRelation | DistributedPersonSeiganRelation | DistributedPersonShitsumonRelation,
+    relation: DistributedPersonGianRelation | DistributedPersonSeiganRelation | DistributedPersonShitsumonRelation | DistributedPersonMeetingRelation | DistributedPersonSpeakingMeetingRelation,
 ) -> tuple:
     """関係配列の並び順を安定化する。"""
 
@@ -76,6 +85,10 @@ def relation_sort_key(
         return (relation.submitted_session or 0, relation.bill_id, relation.role, relation.title)
     if isinstance(relation, DistributedPersonSeiganRelation):
         return (relation.session_number or 0, relation.house, relation.petition_id, relation.role, relation.title)
+    if isinstance(relation, DistributedPersonMeetingRelation):
+        return (relation.session or 0, relation.date, relation.issue_id, relation.role or "", relation.name_of_meeting)
+    if isinstance(relation, DistributedPersonSpeakingMeetingRelation):
+        return (relation.session or 0, relation.date, relation.issue_id, relation.speech_count, relation.name_of_meeting)
     return (relation.session_number or 0, relation.house, relation.question_id, relation.role, relation.title)
 
 
@@ -128,6 +141,8 @@ def process() -> Path:
     gian_relations: dict[str, list[DistributedPersonGianRelation]] = defaultdict(list)
     seigan_relations: dict[str, list[DistributedPersonSeiganRelation]] = defaultdict(list)
     shitsumon_relations: dict[str, list[DistributedPersonShitsumonRelation]] = defaultdict(list)
+    meeting_relations: dict[str, list[DistributedPersonMeetingRelation]] = defaultdict(list)
+    speaking_meeting_relations: dict[str, list[DistributedPersonSpeakingMeetingRelation]] = defaultdict(list)
 
     if GIAN_DETAIL_DIR.exists():
         for path in sorted(GIAN_DETAIL_DIR.glob("*.json")):
@@ -181,7 +196,7 @@ def process() -> Path:
             person_key = build_person_key(presenter.presenter_name)
             if not person_key:
                 continue
-            name_variants[person_key].add(normalize_person_name(presenter.presenter_name))
+            name_variants[person_key].add(presenter.presenter_name)
             seigan_relations[person_key].append(
                 DistributedPersonSeiganRelation(
                     petition_id=detail.petition_id,
@@ -224,6 +239,61 @@ def process() -> Path:
                     )
                 )
 
+    if KAIGIROKU_DETAIL_DIR.exists():
+        for path in sorted(KAIGIROKU_DETAIL_DIR.glob("*.json")):
+            detail = DistributedKokkaiMeetingDetailDataset.model_validate_json(path.read_text(encoding="utf-8"))
+            for attendee in detail.attendance:
+                person_key = build_person_key(attendee.name)
+                if not person_key:
+                    continue
+                name_variants[person_key].add(attendee.name)
+                meeting_relations[person_key].append(
+                    DistributedPersonMeetingRelation(
+                        issue_id=detail.issue_id,
+                        session=detail.session,
+                        name_of_house=detail.name_of_house,
+                        name_of_meeting=detail.name_of_meeting,
+                        issue=detail.issue,
+                        date=detail.date,
+                        role=attendee.role,
+                        section=attendee.section,
+                    )
+                )
+
+    if KAIGIROKU_MEETING_DIR.exists():
+        for path in sorted(KAIGIROKU_MEETING_DIR.glob("*.json")):
+            dataset = KokkaiMeetingApiDataset.model_validate_json(path.read_text(encoding="utf-8"))
+            for meeting in dataset.items:
+                per_person: dict[str, DistributedPersonSpeakingMeetingRelation] = {}
+                for speech in meeting.speech_record:
+                    if not speech.speaker or speech.speaker == "会議録情報":
+                        continue
+                    person_key = build_person_key(speech.speaker)
+                    if not person_key:
+                        continue
+                    name_variants[person_key].add(speech.speaker)
+                    if person_key not in per_person:
+                        per_person[person_key] = DistributedPersonSpeakingMeetingRelation(
+                            issue_id=meeting.issue_id,
+                            session=meeting.session,
+                            name_of_house=meeting.name_of_house,
+                            name_of_meeting=meeting.name_of_meeting,
+                            issue=meeting.issue,
+                            date=meeting.date,
+                            speech_count=0,
+                            speaker_role=speech.speaker_role,
+                            speaker_position=speech.speaker_position,
+                        )
+                    relation = per_person[person_key]
+                    relation.speech_count += 1
+                    if relation.speaker_role is None and speech.speaker_role:
+                        relation.speaker_role = speech.speaker_role
+                    if relation.speaker_position is None and speech.speaker_position:
+                        relation.speaker_position = speech.speaker_position
+
+                for person_key, relation in per_person.items():
+                    speaking_meeting_relations[person_key].append(relation)
+
     items: list[DistributedPersonItem] = []
     for person_key in sorted(name_variants):
         unique_gian_relations = {
@@ -237,6 +307,13 @@ def process() -> Path:
             (relation.question_id, relation.house, relation.role): relation
             for relation in shitsumon_relations.get(person_key, [])
         }
+        unique_meeting_relations = {
+            (relation.issue_id, relation.role, relation.section): relation
+            for relation in meeting_relations.get(person_key, [])
+        }
+        unique_speaking_meeting_relations = {
+            relation.issue_id: relation for relation in speaking_meeting_relations.get(person_key, [])
+        }
         items.append(
             DistributedPersonItem(
                 person_key=person_key,
@@ -245,6 +322,8 @@ def process() -> Path:
                 gian_relations=sorted(unique_gian_relations.values(), key=relation_sort_key),
                 seigan_relations=sorted(unique_seigan_relations.values(), key=relation_sort_key),
                 shitsumon_relations=sorted(unique_shitsumon_relations.values(), key=relation_sort_key),
+                meeting_relations=sorted(unique_meeting_relations.values(), key=relation_sort_key),
+                speaking_meeting_relations=sorted(unique_speaking_meeting_relations.values(), key=relation_sort_key),
             )
         )
 
