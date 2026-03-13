@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
+from typing import Callable
 
 import requests
 
@@ -62,6 +63,8 @@ KAIKI_PATH = Path("data/kaiki.json")
 SHUGIIN_SEIGAN_LIST_HTML_DIR = Path("tmp/seigan/shugiin/list")
 SANGIIN_SEIGAN_LIST_HTML_DIR = Path("tmp/seigan/sangiin/list")
 logger = logging.getLogger(__name__)
+
+PipelineRunner = Callable[[int, bool, bool], None]
 
 
 def parse_args() -> argparse.Namespace:
@@ -227,6 +230,21 @@ def run_distribution_builders(sessions: list[int]) -> None:
     logger.info("配布データ生成完了: sessions=%s", normalized_sessions)
 
 
+def run_pipeline_with_error_logging(
+    pipeline_name: str,
+    runner: PipelineRunner,
+    session: int,
+    skip_existing: bool,
+    parse_only: bool,
+) -> None:
+    """個別パイプライン失敗時にログを残して続行する。"""
+
+    try:
+        runner(session=session, skip_existing=skip_existing, parse_only=parse_only)
+    except Exception:
+        logger.exception("パイプライン失敗。処理を続行します: pipeline=%s session=%s", pipeline_name, session)
+
+
 def main() -> None:
     """国会データ一括更新 CLI のエントリーポイント。"""
 
@@ -244,12 +262,48 @@ def main() -> None:
 
     logger.info("対象回次: sessions=%s force=%s parse_only=%s", sessions, force, args.parse_only)
     for session in sessions:
-        run_gian_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
-        run_kaigiroku_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
-        run_shugiin_seigan_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
-        run_sangiin_seigan_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
-        run_shugiin_shitsumon_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
-        run_sangiin_shitsumon_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
+        run_pipeline_with_error_logging(
+            pipeline_name="gian",
+            runner=run_gian_pipeline,
+            session=session,
+            skip_existing=skip_existing,
+            parse_only=args.parse_only,
+        )
+        run_pipeline_with_error_logging(
+            pipeline_name="kaigiroku",
+            runner=run_kaigiroku_pipeline,
+            session=session,
+            skip_existing=skip_existing,
+            parse_only=args.parse_only,
+        )
+        run_pipeline_with_error_logging(
+            pipeline_name="shugiin_seigan",
+            runner=run_shugiin_seigan_pipeline,
+            session=session,
+            skip_existing=skip_existing,
+            parse_only=args.parse_only,
+        )
+        run_pipeline_with_error_logging(
+            pipeline_name="sangiin_seigan",
+            runner=run_sangiin_seigan_pipeline,
+            session=session,
+            skip_existing=skip_existing,
+            parse_only=args.parse_only,
+        )
+        run_pipeline_with_error_logging(
+            pipeline_name="shugiin_shitsumon",
+            runner=run_shugiin_shitsumon_pipeline,
+            session=session,
+            skip_existing=skip_existing,
+            parse_only=args.parse_only,
+        )
+        run_pipeline_with_error_logging(
+            pipeline_name="sangiin_shitsumon",
+            runner=run_sangiin_shitsumon_pipeline,
+            session=session,
+            skip_existing=skip_existing,
+            parse_only=args.parse_only,
+        )
 
     run_distribution_builders(sessions)
 
