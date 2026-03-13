@@ -365,6 +365,8 @@ class DistributedGianBasicInfo(BaseModel):
     bill_type: str | None = None
     bill_title: str | None = None
     submitter: str | None = None
+    submitter_count: int | None = None
+    submitter_has_more: bool = False
     submitter_group: str | None = None
     member_law_extra: GianMemberLawExtraParsed | None = None
 
@@ -414,3 +416,90 @@ class DistributedGianDetailDataset(BaseModel):
     honbun_page_title: str | None = None
     honbun_documents: list[DistributedGianHonbunDocument]
     built_at: datetime
+
+
+class DistributedPersonGianRelation(BaseModel):
+    """人物と議案の関係1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bill_id: str
+    title: str
+    role: str
+    submitted_session: int | None = None
+
+
+class DistributedPersonShitsumonRelation(BaseModel):
+    """人物と質問主意書の関係1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    question_id: str
+    title: str
+    role: str
+    house: str
+    session_number: int | None = None
+
+
+class DistributedPersonItem(BaseModel):
+    """人物インデックスの1件を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    person_key: str
+    canonical_name: str
+    name_variants: list[str] = []
+    gian_relations: list[DistributedPersonGianRelation] = []
+    shitsumon_relations: list[DistributedPersonShitsumonRelation] = []
+
+
+class DistributedPeopleDataset(BaseModel):
+    """配布用の人物インデックス全体を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    built_at: datetime
+    items: list[DistributedPersonItem]
+
+
+class ApiSessionListResponse(BaseModel):
+    """回次一覧 API のレスポンスを表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sessions: list[int]
+
+
+class ApiIdListResponse(BaseModel):
+    """ID 一覧 API のレスポンスを表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    offset: int
+    limit: int
+    items: list[str]
+
+
+class ApiMetaResponse(BaseModel):
+    """API メタ情報レスポンスを表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    api_version: str
+    datasets_built_at: dict[str, datetime | None]
+    available_gian_sessions: list[int]
+    available_shitsumon_sessions: dict[str, list[int]]
+    available_bill_count: int
+    available_people_count: int
+
+
+class ApiPeopleSearchResponse(BaseModel):
+    """人物検索 API のレスポンスを表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int
+    offset: int
+    limit: int
+    items: list[DistributedPersonItem]

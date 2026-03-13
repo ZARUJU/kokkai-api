@@ -1,30 +1,30 @@
-# 議案 ready データの項目定義
+# 議案配布データの項目定義
 
-この文書は、`tmp/ready/gian/` に生成する議案の配布一歩手前 JSON の各項目が何を意味するかをまとめたものである。
+この文書は、`data/gian/` に生成する議案配布用 JSON の各項目が何を意味するかをまとめたものである。
 対象は以下の 2 種類。
 
-- `tmp/ready/gian/list/{session}.json`
+- `data/gian/list/{session}.json`
   各回次に掲載されている議案一覧
-- `tmp/ready/gian/detail/{bill_id}.json`
+- `data/gian/detail/{bill_id}.json`
   単一議案の個票
 
-2026-03-09 時点では、`src/pipeline/gian/build_gian_distribution.py` がこの形式で生成する。
+2026-03-13 時点では、`src/pipeline/gian/build_gian_distribution.py` がこの形式で生成する。
 
 ## 1. ファイル構成
 
 ### 1.1 一覧
 
 - パス
-  `tmp/ready/gian/list/{session}.json`
+  `data/gian/list/{session}.json`
 - 例
-  `tmp/ready/gian/list/218.json`
+  `data/gian/list/218.json`
 
 ### 1.2 個票
 
 - パス
-  `tmp/ready/gian/detail/{bill_id}.json`
+  `data/gian/detail/{bill_id}.json`
 - 例
-  `tmp/ready/gian/detail/215-shu_law-2.json`
+  `data/gian/detail/215-shu_law-2.json`
 
 ## 2. 共通の考え方
 
@@ -124,7 +124,11 @@
 - `bill_title`
   進捗ページ上の議案件名
 - `submitter`
-  議案提出者。末尾の敬称 `君` は除去している
+  議案提出者の代表者名。末尾の敬称 `君` と `外X名` 表記は除去している
+- `submitter_count`
+  `submitter` を含む提出者総数。`外X名` がある場合だけ入る
+- `submitter_has_more`
+  `submitter` 以外にも提出者がいることを表すフラグ
 - `submitter_group`
   議案提出会派
 - `member_law_extra`

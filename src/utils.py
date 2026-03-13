@@ -74,6 +74,24 @@ def strip_name_honorific(value: str) -> str:
     return text.strip()
 
 
+def split_person_and_count(value: str) -> tuple[str, int | None, bool]:
+    """`山田太郎君外一名` のような表記を代表者名と人数情報に分解する。"""
+
+    text = normalize_text(value)
+    if not text:
+        return "", None, False
+
+    match = re.fullmatch(r"(?P<name>.+?)君?\s*外(?P<count>元|\d+|[〇零一二三四五六七八九十百千]+)名", text)
+    if not match:
+        return strip_name_honorific(text), None, False
+
+    name = strip_name_honorific(match.group("name"))
+    additional_count = parse_japanese_number(match.group("count"))
+    if additional_count is None:
+        return name, None, True
+    return name, additional_count + 1, True
+
+
 def parse_int(value: str) -> int | None:
     """文字列中の最初の整数を抽出する。"""
 

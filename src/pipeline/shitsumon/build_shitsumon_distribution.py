@@ -1,4 +1,4 @@
-"""質問主意書の配布一歩手前データを生成して `tmp/ready/` に保存する。
+"""質問主意書の配布用データを生成して `data/` に保存する。
 
 引数:
     - sessions: 対象の国会回次。省略時は保存済み一覧 JSON を全件処理する
@@ -9,8 +9,8 @@
     - tmp/shitsumon/{house}/detail/{question_id}/index.json
 
 出力:
-    - tmp/ready/shitsumon/{house}/list/{session}.json
-    - tmp/ready/shitsumon/{house}/detail/{question_id}.json
+    - data/shitsumon/{house}/list/{session}.json
+    - data/shitsumon/{house}/detail/{question_id}.json
 
 主な内容:
     - 回次ごとの質問主意書一覧
@@ -38,14 +38,14 @@ from src.models import (
 
 HOUSE_CHOICES = ("shugiin", "sangiin")
 INPUT_ROOT = Path("tmp/shitsumon")
-OUTPUT_ROOT = Path("tmp/ready/shitsumon")
+OUTPUT_ROOT = Path("data/shitsumon")
 logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
     """コマンドライン引数を受け取る。"""
 
-    parser = argparse.ArgumentParser(description="質問主意書の配布一歩手前データを生成する")
+    parser = argparse.ArgumentParser(description="質問主意書の配布用データを生成する")
     parser.add_argument("sessions", nargs="*", type=int, help="対象の国会回次。省略時は全件")
     parser.add_argument(
         "--house",
@@ -76,6 +76,18 @@ def discover_sessions(house: str, input_root: Path = INPUT_ROOT) -> list[int]:
     return sessions
 
 
+def extract_session_number_from_question_id(question_id: str) -> int | None:
+    """質問主意書 ID から回次を取り出す。"""
+
+    parts = question_id.split("-")
+    if len(parts) < 3:
+        return None
+    try:
+        return int(parts[1])
+    except ValueError:
+        return None
+
+
 def validate_list_json(house: str, path: Path) -> dict:
     """一覧 JSON を読み込んでモデル検証し、辞書に戻す。"""
 
@@ -103,7 +115,7 @@ def save_json(path: Path, payload: dict) -> Path:
 
 
 def process_house_sessions(house: str, sessions: list[int], input_root: Path = INPUT_ROOT, output_root: Path = OUTPUT_ROOT) -> None:
-    """対象院・対象回次の一覧と個票を `tmp/ready` に保存する。"""
+    """対象院・対象回次の一覧と個票を `data/` に保存する。"""
 
     logger.info("質問主意書配布データ生成開始: house=%s sessions=%s", house, sessions)
     for session in sessions:
@@ -118,9 +130,13 @@ def process_house_sessions(house: str, sessions: list[int], input_root: Path = I
 
     detail_dir = input_root / house / "detail"
     if detail_dir.exists():
+        target_sessions = set(sessions)
         for path in sorted(detail_dir.glob("*/index.json")):
-            payload = validate_detail_json(house=house, path=path)
             question_id = path.parent.name
+            session_number = extract_session_number_from_question_id(question_id)
+            if session_number not in target_sessions:
+                continue
+            payload = validate_detail_json(house=house, path=path)
             output_path = output_root / house / "detail" / f"{question_id}.json"
             save_json(output_path, payload)
             logger.info("個票保存: house=%s question_id=%s path=%s", house, question_id, output_path)
@@ -129,7 +145,7 @@ def process_house_sessions(house: str, sessions: list[int], input_root: Path = I
 
 
 def main() -> None:
-    """質問主意書の配布一歩手前データを生成する。"""
+    """質問主意書の配布用データを生成する。"""
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args()

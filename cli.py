@@ -1,4 +1,4 @@
-"""国会データの取得から配布一歩手前 JSON 生成までをまとめて実行する CLI。
+"""国会データの取得から配布用 JSON 生成までをまとめて実行する CLI。
 
 引数:
     - sessions: 対象の国会回次。省略時は会期一覧から最新2回分を選ぶ
@@ -14,7 +14,9 @@
     - `data/kaiki.json`
     - `tmp/gian/**`
     - `tmp/shitsumon/**`
-    - `tmp/ready/**`
+    - `data/gian/**`
+    - `data/shitsumon/**`
+    - `data/people/index.json`
 
 主な内容:
     - 最新回次の自動判定
@@ -33,6 +35,7 @@ from src.pipeline.gian import build_gian_distribution
 from src.pipeline.gian import get_gian_list, get_gian_progress, get_gian_text
 from src.pipeline.gian import parse_gian_list, parse_gian_progress, parse_gian_text
 from src.pipeline.kaiki import get_kaiki
+from src.pipeline.people import build_people_index
 from src.pipeline.shitsumon import build_shitsumon_distribution
 from src.pipeline.shitsumon import get_sangiin_shitsumon_detail, get_sangiin_shitsumon_list
 from src.pipeline.shitsumon import get_shugiin_shitsumon_detail, get_shugiin_shitsumon_list
@@ -120,13 +123,14 @@ def run_sangiin_shitsumon_pipeline(session: int, skip_existing: bool) -> None:
 
 
 def run_distribution_builders(sessions: list[int]) -> None:
-    """配布一歩手前データを更新する。"""
+    """配布用データを更新する。"""
 
     normalized_sessions = sorted(set(sessions))
     logger.info("配布データ生成開始: sessions=%s", normalized_sessions)
     build_gian_distribution.process_sessions(normalized_sessions)
     for house in build_shitsumon_distribution.HOUSE_CHOICES:
         build_shitsumon_distribution.process_house_sessions(house=house, sessions=normalized_sessions)
+    build_people_index.process()
     logger.info("配布データ生成完了: sessions=%s", normalized_sessions)
 
 

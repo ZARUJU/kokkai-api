@@ -1,4 +1,4 @@
-"""議案の配布一歩手前データを生成して `tmp/ready/` に保存する。
+"""議案の配布用データを生成して `data/` に保存する。
 
 引数:
     - sessions: 対象の国会回次。省略時は `tmp/gian/list/*.json` を全件処理する
@@ -10,12 +10,13 @@
     - tmp/gian/detail/{bill_id}/honbun/documents/*.html
 
 出力:
-    - tmp/ready/gian/list/{session}.json
-    - tmp/ready/gian/detail/{bill_id}.json
+    - data/gian/list/{session}.json
+    - data/gian/detail/{bill_id}.json
 
 主な内容:
-    - 会期ごとの配布一歩手前の議案一覧
+    - 会期ごとの配布用議案一覧
     - 議案基本情報
+    - 提出者代表名と `外X名` を反映した提出者人数
     - 会期ごとの進捗情報配列
     - 本文文書配列
 """
@@ -51,18 +52,18 @@ from src.models import (
     GianProgressDataset,
 )
 from src.pipeline.gian.parse_gian_text import build_text_dataset
-from src.utils import build_gian_bill_id, strip_name_honorific
+from src.utils import build_gian_bill_id, split_person_and_count, strip_name_honorific
 
 INPUT_LIST_DIR = Path("tmp/gian/list")
 DETAIL_ROOT = Path("tmp/gian/detail")
-OUTPUT_ROOT = Path("tmp/ready/gian")
+OUTPUT_ROOT = Path("data/gian")
 logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
     """コマンドライン引数から対象回次一覧を受け取る。"""
 
-    parser = argparse.ArgumentParser(description="議案の配布一歩手前データを生成する")
+    parser = argparse.ArgumentParser(description="議案の配布用データを生成する")
     parser.add_argument("sessions", nargs="*", type=int, help="対象の国会回次。省略時は全件")
     return parser.parse_args()
 
@@ -217,10 +218,13 @@ def build_basic_info(item: GianItem, progress_datasets: list[GianProgressDataset
             or parsed.submitter_group
             or parsed.member_law_extra is not None
         ):
+            submitter_name, submitter_count, submitter_has_more = split_person_and_count(parsed.submitter or "")
             return DistributedGianBasicInfo(
                 bill_type=parsed.bill_type,
                 bill_title=parsed.bill_title or item.title,
-                submitter=strip_name_honorific(parsed.submitter or "") or None,
+                submitter=submitter_name or None,
+                submitter_count=submitter_count,
+                submitter_has_more=submitter_has_more,
                 submitter_group=parsed.submitter_group,
                 member_law_extra=normalize_member_law_extra(parsed.member_law_extra),
             )
