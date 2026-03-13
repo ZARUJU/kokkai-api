@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <h1>議案一覧</h1>
+  <form class="inline-form" method="get">
+    <label for="session">回次</label>
+    <select id="session" name="session">
+      {% for session in sessions %}
+      <option value="{{ session }}" {% if session == selected_session %}selected{% endif %}>第{{ session }}回</option>
+      {% endfor %}
+    </select>
+    <button type="submit">表示</button>
+  </form>
+  <p class="subtle">{{ dataset["items"]|length }} 件</p>
+</section>
+
+<section class="card" data-tab-root>
+  <div class="tab-bar" role="tablist" aria-label="議案一覧表示">
+    <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab-target="gian-list-panel">一覧</button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="gian-json-panel">JSON</button>
+  </div>
+
+  <section class="tab-panel is-active" id="gian-list-panel">
+    {% for group in category_groups %}
+    <section class="committee-section">
+      <div class="section-heading">
+        <h3>{{ group["category"] }}</h3>
+        <span class="name-pill static">{{ group["count"] }}件</span>
+      </div>
+      <ul class="item-list">
+        {% for item in group["items"] %}
+        <li>
+          <a class="title-link" href="{{ url_for('gian_detail', bill_id=item.bill_id) }}">{{ item.title }}</a>
+          <div class="subtle">{{ item.bill_id }}{% if item.subcategory %} / {{ item.subcategory }}{% endif %} / 状態: {{ item.status or "不明" }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% else %}
+    <ul class="item-list">
+      <li>対象データがありません。</li>
+    </ul>
+    {% endfor %}
+  </section>
+
+  <section class="tab-panel" id="gian-json-panel" hidden>
+    <pre class="json-block">{{ dataset|pretty_json }}</pre>
+  </section>
+</section>
+{% endblock %}

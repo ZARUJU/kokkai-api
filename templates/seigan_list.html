@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card" data-tab-root>
+  <p class="eyebrow">{{ house_labels[house] }}</p>
+  <h1>請願</h1>
+  <div class="tab-bar" aria-label="請願の院切替">
+    <a class="tab-link {% if house == 'shugiin' %}is-active{% endif %}" href="{{ url_for('seigan_index', house='shugiin') }}">衆議院</a>
+    <a class="tab-link {% if house == 'sangiin' %}is-active{% endif %}" href="{{ url_for('seigan_index', house='sangiin') }}">参議院</a>
+  </div>
+  <form class="inline-form" method="get">
+    <label for="session">回次</label>
+    <select id="session" name="session">
+      {% for session in sessions %}
+      <option value="{{ session }}" {% if session == selected_session %}selected{% endif %}>第{{ session }}回</option>
+      {% endfor %}
+    </select>
+    <button type="submit">表示</button>
+  </form>
+  <p class="subtle">第{{ selected_session }}回の {{ item_count }} 件を表示しています。</p>
+
+  <dl class="stats compact-stats">
+    <div><dt>件数</dt><dd>{{ item_count }}</dd></div>
+    <div><dt>付託あり</dt><dd>{{ referred_count }}</dd></div>
+    <div><dt>付託なし</dt><dd>{{ not_referred_count }}</dd></div>
+  </dl>
+
+  <div class="tab-bar" role="tablist" aria-label="請願一覧表示">
+    <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab-target="seigan-list-panel">一覧</button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="seigan-json-panel">JSON</button>
+  </div>
+
+  <section class="tab-panel is-active" id="seigan-list-panel">
+    <h2>回次一覧</h2>
+    {% for group in committee_groups %}
+    <section class="committee-section" id="{{ group.anchor_id }}">
+      <div class="section-heading">
+        <h3>{{ group.committee_name }}</h3>
+        <span class="name-pill static">{{ group.count }}件</span>
+      </div>
+      <ul class="item-list compact">
+        {% for item in group["items"] %}
+        <li class="petition-list-item">
+          <div class="petition-header">
+            <strong><a href="{{ url_for('seigan_detail', house=house, petition_id=item.petition_id) }}">{{ item.title }}</a></strong>
+            <span class="subtle">請願 {{ item.petition_number }}</span>
+          </div>
+          <div class="subtle">ID: {{ item.petition_id }} / 付託: {{ "あり" if item.is_referred else "なし" }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% else %}
+    <ul class="item-list compact">
+      <li>対象データがありません。</li>
+    </ul>
+    {% endfor %}
+  </section>
+
+  <section class="tab-panel" id="seigan-json-panel" hidden>
+    <pre class="json-block">{{ items|pretty_json }}</pre>
+  </section>
+</section>
+{% endblock %}

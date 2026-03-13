@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <p class="eyebrow">{{ house_labels[house] }}質問主意書</p>
+  <h1>{{ question.title }}</h1>
+  <div class="tab-bar" aria-label="質問主意書の院切替">
+    <a class="tab-link {% if house == 'shugiin' %}is-active{% endif %}" href="{{ url_for('shitsumon_index', house='shugiin') }}">衆議院</a>
+    <a class="tab-link {% if house == 'sangiin' %}is-active{% endif %}" href="{{ url_for('shitsumon_index', house='sangiin') }}">参議院</a>
+  </div>
+  <dl class="meta-list">
+    <div><dt>question_id</dt><dd><code>{{ question.question_id }}</code></dd></div>
+    <div><dt>提出者</dt><dd>{{ question.submitter_name }}</dd></div>
+    <div><dt>状態</dt><dd>{{ question.progress.status or "不明" }}</dd></div>
+    <div><dt>提出日</dt><dd>{{ question.progress.submitted_at or "-" }}</dd></div>
+    <div><dt>答弁受領日</dt><dd>{{ question.progress.answer_received_at or "-" }}</dd></div>
+  </dl>
+</section>
+
+<section class="card" data-tab-root>
+  <div class="tab-bar" role="tablist" aria-label="質問主意書詳細表示">
+    <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab-target="question-progress-panel">進捗</button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="question-body-panel">質問本文</button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="answer-body-panel">答弁本文</button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="question-json-panel">JSON</button>
+  </div>
+
+  <section class="tab-panel is-active" id="question-progress-panel">
+    <h2>進捗</h2>
+    <div class="grid two">
+      <article class="card card-inset">
+        <dl class="meta-list">
+          <div><dt>状態</dt><dd>{{ question.progress.status or "-" }}</dd></div>
+          <div><dt>会期種別</dt><dd>{{ question.progress.session_type or "-" }}</dd></div>
+          <div><dt>会派</dt><dd>{{ question.progress.group_name or "-" }}</dd></div>
+        </dl>
+      </article>
+
+      <article class="card card-inset">
+        <h3>日付の流れ</h3>
+        <ul class="timeline-list">
+          <li>
+            <strong>提出</strong>
+            <span>{{ question.progress.submitted_at or "-" }}</span>
+          </li>
+          <li>
+            <strong>内閣送付</strong>
+            <span>{{ question.progress.cabinet_sent_at or "-" }}</span>
+          </li>
+          <li>
+            <strong>答弁期限</strong>
+            <span>{{ question.progress.answer_due_at or "-" }}</span>
+          </li>
+          <li>
+            <strong>答弁遅延通知</strong>
+            <span>{{ question.progress.answer_delay_notice_received_at or "-" }}</span>
+          </li>
+          <li>
+            <strong>答弁受領</strong>
+            <span>{{ question.progress.answer_received_at or "-" }}</span>
+          </li>
+          <li>
+            <strong>撤回</strong>
+            <span>{{ question.progress.withdrawn_at or "-" }}</span>
+          </li>
+          <li>
+            <strong>撤回通知</strong>
+            <span>{{ question.progress.withdrawal_notice_at or "-" }}</span>
+          </li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="tab-panel" id="question-body-panel" hidden>
+    <h2>質問本文</h2>
+    <div class="text-block">{{ question.question_document.body_text }}</div>
+  </section>
+
+  <section class="tab-panel" id="answer-body-panel" hidden>
+    <h2>答弁本文</h2>
+    <div class="text-block">{{ question.answer_document.body_text if question.answer_document else "答弁なし" }}</div>
+  </section>
+
+  <section class="tab-panel" id="question-json-panel" hidden>
+    <h2>JSON</h2>
+    <pre class="json-block">{{ question|pretty_json }}</pre>
+  </section>
+</section>
+{% endblock %}

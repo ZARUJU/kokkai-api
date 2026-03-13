@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <div class="tab-bar" aria-label="人物検索表示">
+    <a class="tab-link {% if mode == 'search' %}is-active{% endif %}" href="{{ url_for('people_index', q=query) if query else url_for('people_index') }}">検索結果</a>
+    <a class="tab-link {% if mode == 'index' %}is-active{% endif %}" href="{{ url_for('people_index') }}">先頭一覧</a>
+  </div>
+  <h1>人物検索</h1>
+  <form class="inline-form" method="get">
+    <input type="search" name="q" value="{{ query }}" placeholder="氏名や人物キーで検索">
+    <button type="submit">検索</button>
+  </form>
+  {% if mode == "search" %}
+  <p class="subtle">{{ results.total }} 件中 {{ results["items"]|length }} 件を表示</p>
+  {% else %}
+  <p class="subtle">検索語が空のときは先頭の人物キーを表示します。</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  {% if mode == "search" %}
+  <ul class="item-list">
+    {% for item in results["items"] %}
+    <li>
+      <a href="{{ url_for('person_detail', person_key=item.person_key) }}">{{ item.canonical_name }}</a>
+      <span class="subtle">{{ item.person_key }}</span>
+      <span class="badge">議案 {{ item.gian_relations|length }}</span>
+      <span class="badge">請願 {{ item.seigan_relations|length }}</span>
+      <span class="badge">質問 {{ item.shitsumon_relations|length }}</span>
+    </li>
+    {% else %}
+    <li>該当する人物は見つかりませんでした。</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <ul class="item-list">
+    {% for person_key in results["items"] %}
+    <li><a href="{{ url_for('person_detail', person_key=person_key) }}">{{ person_key }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endblock %}

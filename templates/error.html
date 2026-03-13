@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <p class="eyebrow">Status {{ status_code }}</p>
+  <h1>API 取得エラー</h1>
+  <p>{{ message }}</p>
+  <p>先に <code>uv run api.py</code> で API を起動しているか確認してください。</p>
+</section>
+{% endblock %}

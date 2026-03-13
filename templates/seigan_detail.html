@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <p class="eyebrow">{{ house_labels[house] }}請願</p>
+  <h1>{{ petition.title }}</h1>
+  <dl class="meta-list">
+    <div><dt>petition_id</dt><dd><code>{{ petition.petition_id }}</code></dd></div>
+    <div><dt>回次</dt><dd>第{{ petition.session_number }}回</dd></div>
+    <div><dt>請願番号</dt><dd>{{ petition.petition_number }}</dd></div>
+    <div><dt>委員会</dt><dd>{{ petition.committee_name }}</dd></div>
+    <div><dt>受理件数</dt><dd>{{ petition.accepted_count }}</dd></div>
+    <div><dt>請願者通数</dt><dd>{{ petition.signer_count }}</dd></div>
+    <div><dt>紹介議員件数</dt><dd>{{ petition.presenters|length }}</dd></div>
+    <div><dt>結果</dt><dd>{{ petition.outcome }}</dd></div>
+  </dl>
+</section>
+
+<section class="card" data-tab-root>
+  <div class="tab-bar" role="tablist" aria-label="請願詳細表示">
+    <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab-target="petition-summary-panel">要旨</button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="petition-presenters-panel">紹介議員 <span class="badge">{{ petition.presenters|length }}</span></button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="petition-json-panel">JSON</button>
+  </div>
+
+  <section class="tab-panel is-active" id="petition-summary-panel">
+    <h2>要旨</h2>
+    <div class="text-block">{{ petition.summary_text }}</div>
+  </section>
+
+  <section class="tab-panel" id="petition-presenters-panel" hidden>
+    <h2>紹介議員一覧</h2>
+    <p class="subtle">{{ petition.presenters|length }} 件</p>
+    <ul class="item-list compact">
+      {% for item in petition.presenters %}
+      <li>
+        <strong>
+          <a href="{{ url_for('person_detail', person_key=item.presenter_name|person_key) }}">{{ item.presenter_name }}</a>
+        </strong>
+        <div class="subtle">受付番号: {{ item.receipt_number or "-" }} / 会派: {{ item.party_name or "-" }}</div>
+        <div class="subtle">受理日: {{ item.received_at or "-" }} / 付託日: {{ item.referred_at or "-" }}</div>
+        <div class="subtle">結果: {{ item.result or "-" }}</div>
+      </li>
+      {% else %}
+      <li>紹介議員情報はありません。</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="tab-panel" id="petition-json-panel" hidden>
+    <h2>JSON</h2>
+    <pre class="json-block">{{ petition|pretty_json }}</pre>
+  </section>
+</section>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">Flask + FastAPI</p>
+    <h1>国会データをブラウザでざっと確認するための UI</h1>
+    <p class="lead">既存の配布 API をそのまま利用し、人物検索と議案・請願・質問主意書の閲覧に絞って表示します。</p>
+  </div>
+</section>
+
+<section class="grid two">
+  <article class="card">
+    <h2>データ件数</h2>
+    <dl class="stats">
+      <div><dt>議案個票</dt><dd>{{ meta.available_bill_count }}</dd></div>
+      <div><dt>請願個票</dt><dd>{{ meta.available_petition_count }}</dd></div>
+      <div><dt>人物</dt><dd>{{ meta.available_people_count }}</dd></div>
+    </dl>
+  </article>
+  <article class="card">
+    <h2>人物検索</h2>
+    <form class="inline-form" action="{{ url_for('people_index') }}" method="get">
+      <input type="search" name="q" placeholder="例: 井上哲士">
+      <button type="submit">検索</button>
+    </form>
+  </article>
+</section>
+
+<section class="grid two">
+  <article class="card">
+    <h2>会期</h2>
+    <a class="button-link" href="{{ url_for('kaiki_index') }}">回次一覧を見る</a>
+  </article>
+  <article class="card">
+    <h2>議案</h2>
+    {% if meta.available_gian_sessions %}
+    <p>最新回次: {{ meta.available_gian_sessions[-1] }}</p>
+    <a class="button-link" href="{{ url_for('gian_index', session=meta.available_gian_sessions[-1]) }}">一覧を見る</a>
+    {% endif %}
+  </article>
+  <article class="card">
+    <h2>請願</h2>
+    <div class="button-row">
+      <a class="button-link" href="{{ url_for('seigan_index', house='shugiin') }}">衆議院</a>
+      <a class="button-link" href="{{ url_for('seigan_index', house='sangiin') }}">参議院</a>
+    </div>
+  </article>
+  <article class="card">
+    <h2>質問主意書</h2>
+    <div class="button-row">
+      <a class="button-link" href="{{ url_for('shitsumon_index', house='shugiin') }}">衆議院</a>
+      <a class="button-link" href="{{ url_for('shitsumon_index', house='sangiin') }}">参議院</a>
+    </div>
+  </article>
+  <article class="card">
+    <h2>メタ情報</h2>
+    <pre class="json-block">{{ meta|pretty_json }}</pre>
+  </article>
+</section>
+{% endblock %}

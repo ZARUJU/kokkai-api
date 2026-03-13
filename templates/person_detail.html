@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <p class="eyebrow">人物</p>
+  <h1>{{ person.canonical_name }}</h1>
+  <p class="subtle">person_key: <code>{{ person.person_key }}</code></p>
+  {% if person.name_variants %}
+  <p>表記ゆれ: {{ person.name_variants|join(" / ") }}</p>
+  {% endif %}
+</section>
+
+<section class="card" data-tab-root>
+  <div class="tab-bar" role="tablist" aria-label="人物関連データ">
+    <button class="tab-button is-active" type="button" role="tab" aria-selected="true" aria-controls="tab-gian" id="tab-button-gian" data-tab-target="tab-gian">
+      議案 <span class="badge">{{ person.gian_relations|length }}</span>
+    </button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-seigan" id="tab-button-seigan" data-tab-target="tab-seigan">
+      請願 <span class="badge">{{ person.seigan_relations|length }}</span>
+    </button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-shitsumon" id="tab-button-shitsumon" data-tab-target="tab-shitsumon">
+      質問主意書 <span class="badge">{{ person.shitsumon_relations|length }}</span>
+    </button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-json" id="tab-button-json" data-tab-target="tab-json">
+      JSON
+    </button>
+  </div>
+
+  <section class="tab-panel is-active" id="tab-gian" role="tabpanel" aria-labelledby="tab-button-gian">
+    <h2>議案</h2>
+    {% for group in gian_groups %}
+    <section class="session-group">
+      <h3>第{{ group["session_number"] }}回</h3>
+      <ul class="item-list compact">
+        {% for item in group["items"] %}
+        <li>
+          <a class="title-link" href="{{ url_for('gian_detail', bill_id=item.bill_id) }}">{{ item.title }}</a>
+          <div class="subtle">{{ item.bill_id }} / {{ item.role|role_label }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% else %}
+    <ul class="item-list compact">
+      <li>関連なし</li>
+    </ul>
+    {% endfor %}
+  </section>
+
+  <section class="tab-panel" id="tab-seigan" role="tabpanel" aria-labelledby="tab-button-seigan" hidden>
+    <h2>請願</h2>
+    {% for group in seigan_groups %}
+    <section class="session-group">
+      <h3>{% if group["session_number"] %}第{{ group["session_number"] }}回{% else %}回次不明{% endif %}</h3>
+      <ul class="item-list compact">
+        {% for item in group["items"] %}
+        <li>
+          <a href="{{ url_for('seigan_detail', house=item.house, petition_id=item.petition_id) }}">{{ item.title }}</a>
+          <div class="subtle">{{ item.petition_id }} / {{ item.role|role_label }} / {{ house_labels[item.house] }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% else %}
+    <ul class="item-list compact">
+      <li>関連なし</li>
+    </ul>
+    {% endfor %}
+  </section>
+
+  <section class="tab-panel" id="tab-shitsumon" role="tabpanel" aria-labelledby="tab-button-shitsumon" hidden>
+    <h2>質問主意書</h2>
+    {% for group in shitsumon_groups %}
+    <section class="session-group">
+      <h3>{% if group["session_number"] %}第{{ group["session_number"] }}回{% else %}回次不明{% endif %}</h3>
+      <ul class="item-list compact">
+        {% for item in group["items"] %}
+        <li>
+          <a href="{{ url_for('shitsumon_detail', house=item.house, question_id=item.question_id) }}">{{ item.title }}</a>
+          <div class="subtle">{{ item.question_id }} / {{ item.role|role_label }} / {{ house_labels[item.house] }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% else %}
+    <ul class="item-list compact">
+      <li>関連なし</li>
+    </ul>
+    {% endfor %}
+  </section>
+
+  <section class="tab-panel" id="tab-json" role="tabpanel" aria-labelledby="tab-button-json" hidden>
+    <h2>JSON</h2>
+    <pre class="json-block">{{ person|pretty_json }}</pre>
+  </section>
+</section>
+{% endblock %}

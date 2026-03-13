@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <p class="eyebrow">{{ house_labels[house] }}</p>
+  <h1>質問主意書</h1>
+  <div class="tab-bar" aria-label="質問主意書の院切替">
+    <a class="tab-link {% if house == 'shugiin' %}is-active{% endif %}" href="{{ url_for('shitsumon_index', house='shugiin') }}">衆議院</a>
+    <a class="tab-link {% if house == 'sangiin' %}is-active{% endif %}" href="{{ url_for('shitsumon_index', house='sangiin') }}">参議院</a>
+  </div>
+  <form class="inline-form" method="get">
+    <label for="session">回次</label>
+    <select id="session" name="session">
+      {% for session in sessions %}
+      <option value="{{ session }}" {% if session == selected_session %}selected{% endif %}>第{{ session }}回</option>
+      {% endfor %}
+    </select>
+    <button type="submit">表示</button>
+  </form>
+  <p class="subtle">{{ item_count }} 件</p>
+</section>
+
+<section class="card" data-tab-root>
+  <div class="tab-bar" role="tablist" aria-label="質問主意書一覧表示">
+    <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab-target="shitsumon-list-panel">一覧</button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="shitsumon-json-panel">JSON</button>
+  </div>
+
+  <section class="tab-panel is-active" id="shitsumon-list-panel">
+    {% for group in submitter_groups %}
+    <section class="committee-section" id="{{ group.anchor_id }}">
+      <div class="section-heading">
+        <h3>{{ group.submitter_name }}</h3>
+        <span class="name-pill static">{{ group.count }}件</span>
+      </div>
+      <ul class="item-list">
+        {% for item in group["items"] %}
+        <li>
+          <a class="title-link" href="{{ url_for('shitsumon_detail', house=house, question_id=item.question_id) }}">{{ item.title }}</a>
+          <div class="subtle">番号: {{ item.question_number }} / ID: {{ item.question_id }}</div>
+          <div class="subtle">
+            {% if item.answer_html_url %}答弁あり{% else %}答弁情報なし{% endif %}
+            {% if item.detail_url %} / <a href="{{ item.detail_url }}" target="_blank" rel="noreferrer">元ページ</a>{% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% else %}
+    <ul class="item-list">
+      <li>対象データがありません。</li>
+    </ul>
+    {% endfor %}
+  </section>
+
+  <section class="tab-panel" id="shitsumon-json-panel" hidden>
+    <pre class="json-block">{{ items|pretty_json }}</pre>
+  </section>
+</section>
+{% endblock %}

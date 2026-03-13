@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }} | kokkai-api UI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='ui.css') }}">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="{{ url_for('index') }}">kokkai-api UI</a>
+        <nav class="main-nav">
+          <a class="tab-link {% if active_section == 'kaiki' %}is-active{% endif %}" href="{{ url_for('kaiki_index') }}">会期</a>
+          <a class="tab-link {% if active_section == 'people' %}is-active{% endif %}" href="{{ url_for('people_index') }}">人物</a>
+          <a class="tab-link {% if active_section == 'gian' %}is-active{% endif %}" href="{{ url_for('gian_index') }}">議案</a>
+          <a class="tab-link {% if active_section == 'seigan' %}is-active{% endif %}" href="{{ url_for('seigan_index', house='shugiin') }}">請願</a>
+          <a class="tab-link {% if active_section == 'shitsumon' %}is-active{% endif %}" href="{{ url_for('shitsumon_index', house='shugiin') }}">質問主意書</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer wrap">
+      <span>API: <code>{{ api_base_url }}</code></span>
+    </footer>
+    <script>
+      (() => {
+        const tabRoots = document.querySelectorAll("[data-tab-root]");
+        for (const root of tabRoots) {
+          const buttons = Array.from(root.querySelectorAll("[data-tab-target]"));
+          const panels = Array.from(root.querySelectorAll(".tab-panel"));
+          if (!buttons.length || !panels.length) {
+            continue;
+          }
+
+          function activateTab(targetId) {
+            for (const button of buttons) {
+              const active = button.dataset.tabTarget === targetId;
+              button.classList.toggle("is-active", active);
+              button.setAttribute("aria-selected", active ? "true" : "false");
+            }
+
+            for (const panel of panels) {
+              const active = panel.id === targetId;
+              panel.classList.toggle("is-active", active);
+              panel.hidden = !active;
+            }
+          }
+
+          for (const button of buttons) {
+            button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>

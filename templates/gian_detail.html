@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <p class="eyebrow">議案</p>
+  <h1>{{ bill.title }}</h1>
+  <dl class="meta-list">
+    <div><dt>bill_id</dt><dd><code>{{ bill.bill_id }}</code></dd></div>
+    <div><dt>回次</dt><dd>第{{ bill.submitted_session }}回</dd></div>
+    <div><dt>カテゴリ</dt><dd>{{ bill.category }}</dd></div>
+    <div><dt>番号</dt><dd>{{ bill.bill_number }}</dd></div>
+  </dl>
+</section>
+
+<section class="card" data-tab-root>
+  <div class="tab-bar" role="tablist" aria-label="議案詳細表示">
+    <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab-target="bill-basic-panel">基本情報</button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="bill-progress-panel">審議経過 <span class="badge">{{ bill.progress|length }}</span></button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="bill-docs-panel">本文文書 <span class="badge">{{ bill.honbun_documents|length }}</span></button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="bill-json-panel">JSON</button>
+  </div>
+
+  <section class="tab-panel is-active" id="bill-basic-panel">
+    <h2>基本情報</h2>
+    <div class="grid two">
+      <article class="card card-inset">
+        <dl class="meta-list">
+          <div><dt>法案種別</dt><dd>{{ bill.basic_info.bill_type or "-" }}</dd></div>
+          <div><dt>法案名</dt><dd>{{ bill.basic_info.bill_title or bill.title }}</dd></div>
+          <div><dt>提出者代表</dt><dd>{{ bill.basic_info.submitter or "-" }}</dd></div>
+          <div><dt>提出者数</dt><dd>{{ bill.basic_info.submitter_count or "-" }}</dd></div>
+          <div><dt>提出会派</dt><dd>{{ bill.basic_info.submitter_group or "-" }}</dd></div>
+        </dl>
+      </article>
+
+      <article class="card card-inset">
+        <h3>提出者一覧</h3>
+        {% if bill.basic_info.member_law_extra and bill.basic_info.member_law_extra.submitter_list %}
+        <div class="name-cloud">
+          {% for name in bill.basic_info.member_law_extra.submitter_list %}
+          <a class="name-pill" href="{{ url_for('person_detail', person_key=name) }}">{{ name }}</a>
+          {% endfor %}
+        </div>
+        {% elif bill.basic_info.submitter %}
+        <div class="name-cloud">
+          <span class="name-pill static">{{ bill.basic_info.submitter }}</span>
+        </div>
+        {% else %}
+        <p class="subtle">提出者情報はありません。</p>
+        {% endif %}
+      </article>
+    </div>
+
+    <article class="card card-inset">
+      <h3>賛成者一覧</h3>
+      {% if bill.basic_info.member_law_extra and bill.basic_info.member_law_extra.supporters %}
+      <div class="name-cloud">
+        {% for name in bill.basic_info.member_law_extra.supporters %}
+        <a class="name-pill" href="{{ url_for('person_detail', person_key=name) }}">{{ name }}</a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="subtle">賛成者一覧はありません。</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="tab-panel" id="bill-progress-panel" hidden>
+    <h2>審議経過</h2>
+    <ul class="item-list compact">
+      {% for item in bill.progress %}
+      <li>
+        <strong>第{{ item.session_number }}回</strong> {{ item.status or "不明" }}
+        {% if item.source_url %}
+        <a class="external-link" href="{{ item.source_url }}" target="_blank" rel="noreferrer">元ページ</a>
+        {% endif %}
+      </li>
+      {% else %}
+      <li>審議経過はありません。</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="tab-panel" id="bill-docs-panel" hidden>
+    <h2>本文文書</h2>
+    <ul class="item-list compact">
+      {% for doc in bill.honbun_documents %}
+      <li>
+        <strong>{{ doc.label or doc.title }}</strong>
+        {% if doc.note %}<span class="subtle">{{ doc.note }}</span>{% endif %}
+        {% if doc.source_url %}
+        <a class="external-link" href="{{ doc.source_url }}" target="_blank" rel="noreferrer">元ページ</a>
+        {% endif %}
+      </li>
+      {% else %}
+      <li>本文文書はありません。</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="tab-panel" id="bill-json-panel" hidden>
+    <h2>JSON</h2>
+    <pre class="json-block">{{ bill|pretty_json }}</pre>
+  </section>
+</section>
+{% endblock %}
