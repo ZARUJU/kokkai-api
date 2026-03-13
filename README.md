@@ -24,8 +24,7 @@
 - `tmp`
   一時出力、検証用ファイル、配布前の中間生成物を置く
 
-現時点では、議案の統合済み JSON はまだ公開仕様確定前のため `tmp/ready/` に置く。
-最終的に外部公開する形式まで固まったものだけ `data/` に昇格させる。
+配布用として確定した JSON は `data/` に置き、raw HTML や途中生成物は `tmp/` に残す。
 
 ## セットアップ
 
@@ -40,7 +39,7 @@ uv sync
 回次をまとめて処理する入口として `cli.py` を用意しています。
 
 - 引数なし
-  会期一覧を更新した上で、最新2回分を強制更新しながら取得・整形・`tmp/ready/` 生成まで実行
+  会期一覧を更新した上で、最新2回分を強制更新しながら取得・整形・`data/` 生成まで実行
 - 引数あり
   指定回次だけ処理。既定では取得済み raw データを再利用し、`--force` 指定時のみ再取得
 
@@ -181,7 +180,8 @@ uv run python src/pipeline/gian/parse_gian_text.py 221
 
 ### `build_gian_distribution.py`
 
-保存済みの議案一覧・進捗・本文データから、配布一歩手前の議案一覧 JSON と議案個票 JSON を `tmp/ready/` に生成します。
+保存済みの議案一覧・進捗・本文データから、配布用の議案一覧 JSON と議案個票 JSON を `data/` に生成します。
+議案個票では、`山田太郎君外一名` のような提出者表記を代表者名と提出者人数に分けて保持します。
 
 - 入力
   `tmp/gian/list/{回次}.json`
@@ -191,8 +191,8 @@ uv run python src/pipeline/gian/parse_gian_text.py 221
 - 引数
   `sessions...`: 対象の国会回次。省略時は `tmp/gian/list/*.json` を全件処理
 - 出力
-  `tmp/ready/gian/list/{回次}.json`
-  `tmp/ready/gian/detail/{bill_id}.json`
+  `data/gian/list/{回次}.json`
+  `data/gian/detail/{bill_id}.json`
 
 実行例:
 
@@ -354,7 +354,7 @@ uv run python src/pipeline/shitsumon/parse_sangiin_shitsumon_detail.py 218
 
 ### `build_shitsumon_distribution.py`
 
-保存済みの衆参質問主意書一覧・個票 JSON を、そのまま配布一歩手前データとして `tmp/ready/` に保存します。
+保存済みの衆参質問主意書一覧・個票 JSON を、配布用データとして `data/` に保存します。
 
 - 入力
   `tmp/shitsumon/{house}/list/{回次}.json`
@@ -363,8 +363,8 @@ uv run python src/pipeline/shitsumon/parse_sangiin_shitsumon_detail.py 218
   `sessions...`: 対象の国会回次。省略時は保存済み一覧 JSON を全件処理
   `--house`: `shugiin` `sangiin` `all`。既定値は `all`
 - 出力
-  `tmp/ready/shitsumon/{house}/list/{回次}.json`
-  `tmp/ready/shitsumon/{house}/detail/{question_id}.json`
+  `data/shitsumon/{house}/list/{回次}.json`
+  `data/shitsumon/{house}/detail/{question_id}.json`
 
 実行例:
 
@@ -372,9 +372,29 @@ uv run python src/pipeline/shitsumon/parse_sangiin_shitsumon_detail.py 218
 uv run python src/pipeline/shitsumon/build_shitsumon_distribution.py --house all 218 221
 ```
 
+### `build_people_index.py`
+
+配布用の議案個票と質問主意書個票から、人物ごとのリレーションをまとめた人物インデックスを生成します。
+
+- 入力
+  `data/gian/detail/*.json`
+  `data/shitsumon/shugiin/detail/*.json`
+  `data/shitsumon/sangiin/detail/*.json`
+- 引数
+  なし
+- 出力
+  `data/people/index.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/people/build_people_index.py
+```
+
 ## API
 
-会期一覧と、議案の配布一歩手前 JSON を FastAPI で配信できます。
+会期一覧、議案、質問主意書、人物インデックスの配布用 JSON を FastAPI で配信できます。
+公開用の正式エンドポイントは `/v1` 配下です。
 
 起動例:
 
@@ -385,11 +405,19 @@ uv run api.py
 主なエンドポイント:
 
 - `GET /health`
-- `GET /kaiki`
-- `GET /gian/list`
-- `GET /gian/list/{session}`
-- `GET /gian/detail`
-- `GET /gian/detail/{bill_id}`
+- `GET /meta`
+- `GET /v1/kaiki`
+- `GET /v1/gian/list`
+- `GET /v1/gian/list/{session}`
+- `GET /v1/gian/detail`
+- `GET /v1/gian/detail/{bill_id}`
+- `GET /v1/shitsumon/{house}/list`
+- `GET /v1/shitsumon/{house}/list/{session}`
+- `GET /v1/shitsumon/{house}/detail`
+- `GET /v1/shitsumon/{house}/detail/{question_id}`
+- `GET /v1/people`
+- `GET /v1/people/search?q=高市`
+- `GET /v1/people/{person_key}`
 
 ## 出力方針
 
