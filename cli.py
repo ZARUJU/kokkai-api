@@ -2,6 +2,7 @@
 
 引数:
     - sessions: 対象の国会回次。省略時は会期一覧から最新2回分を選ぶ
+    - --all: 会期一覧にある全回次を対象にする
     - --force: 取得済み raw データがあっても再取得する
     - --parse-only: 取得済み raw / 中間データだけを使って再パースと配布用 JSON 更新を行う
 
@@ -78,6 +79,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="国会データ取得パイプラインを一括実行する")
     parser.add_argument("sessions", nargs="*", type=int, help="対象の国会回次。省略時は最新2回分")
     parser.add_argument(
+        "--all",
+        action="store_true",
+        help="会期一覧にある全回次を対象にする",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="取得済み raw データがあっても再取得する。引数なし時は自動で有効",
@@ -112,6 +118,10 @@ def select_sessions(args: argparse.Namespace, kaiki_dataset: KaikiDataset) -> tu
         sessions = list(dict.fromkeys(args.sessions))
         force = args.force
         return sessions, force
+
+    if args.all:
+        all_sessions = sorted({item.number for item in kaiki_dataset.items}, reverse=True)
+        return all_sessions, args.force
 
     latest_sessions = sorted({item.number for item in kaiki_dataset.items}, reverse=True)[:DEFAULT_LATEST_COUNT]
     return latest_sessions, True
@@ -297,6 +307,8 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args()
+    if args.sessions and args.all:
+        raise SystemExit("`sessions` と `--all` は同時に指定できません。")
     if args.sessions:
         sessions = list(dict.fromkeys(args.sessions))
         force = args.force

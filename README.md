@@ -57,6 +57,8 @@ uv sync
   会期一覧を更新した上で、最新2回分の会議録・議案・請願・質問主意書を強制更新しながら取得・整形・`data/` 生成まで実行
 - 引数あり
   指定回次だけ処理。既定では取得済み raw データを再利用し、`--force` 指定時のみ再取得。`data/kaiki.json` がなくても実行可能
+- `--all`
+  会期一覧をもとに、取得可能な全回次をまとめて処理
 - `--parse-only`
   取得済みの raw HTML / 中間 JSON だけを使って、パースと `data/` 再生成だけを行う
 
@@ -65,6 +67,7 @@ uv sync
 ```bash
 uv run python cli.py
 uv run python cli.py 220 221
+uv run python cli.py --all
 uv run python cli.py 220 221 --force
 uv run python cli.py 217 --parse-only
 ```
