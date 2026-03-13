@@ -39,9 +39,11 @@ uv sync
 回次をまとめて処理する入口として `cli.py` を用意しています。
 
 - 引数なし
-  会期一覧を更新した上で、最新2回分を強制更新しながら取得・整形・`data/` 生成まで実行
+  会期一覧を更新した上で、最新2回分の議案・請願・質問主意書を強制更新しながら取得・整形・`data/` 生成まで実行
 - 引数あり
   指定回次だけ処理。既定では取得済み raw データを再利用し、`--force` 指定時のみ再取得
+- `--parse-only`
+  取得済みの raw HTML / 中間 JSON だけを使って、パースと `data/` 再生成だけを行う
 
 実行例:
 
@@ -49,6 +51,7 @@ uv sync
 uv run python cli.py
 uv run python cli.py 220 221
 uv run python cli.py 220 221 --force
+uv run python cli.py 217 --parse-only
 ```
 
 ## パイプライン
@@ -538,7 +541,7 @@ uv run python src/pipeline/shitsumon/build_shitsumon_distribution.py --house all
 
 ### `build_people_index.py`
 
-配布用の議案個票と質問主意書個票から、人物ごとのリレーションをまとめた人物インデックスを生成します。
+配布用の議案個票、請願個票、質問主意書個票から、人物ごとのリレーションをまとめた人物インデックスを生成します。
 
 - 入力
   `data/gian/detail/*.json`
@@ -586,6 +589,27 @@ uv run api.py
 - `GET /v1/people`
 - `GET /v1/people/search?q=高市`
 - `GET /v1/people/{person_key}`
+
+## Flask UI
+
+既存 API を利用して、人物検索と議案・請願・質問主意書の閲覧ができる簡易 UI を `ui.py` で起動できます。
+Flask 側は JSON を直接読まず、`API_BASE_URL` で指定した API に HTTP で接続します。
+
+起動例:
+
+```bash
+uv run api.py
+uv run flask --app ui run --port 5001
+```
+
+環境変数:
+
+- `API_BASE_URL`
+  Flask UI が参照する API のベース URL。既定値は `http://127.0.0.1:9000`
+- `FLASK_HOST`
+  `python ui.py` で直接起動するときのホスト。既定値は `127.0.0.1`
+- `FLASK_PORT`
+  `python ui.py` で直接起動するときのポート。既定値は `5001`
 
 ## 出力方針
 
