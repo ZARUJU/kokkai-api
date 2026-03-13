@@ -37,6 +37,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.models import ShugiinShitsumonListDataset
 from src.utils import build_shugiin_shitsumon_id, should_skip_existing
+from src.utils import decode_html_bytes
 
 INPUT_DIR = Path("tmp/shitsumon/shugiin/list")
 DETAIL_ROOT = Path("tmp/shitsumon/shugiin/detail")
@@ -69,10 +70,13 @@ def load_shitsumon_list(session: int, input_dir: Path = INPUT_DIR) -> ShugiinShi
 def fetch_html(url: str) -> str:
     """個別ページの raw HTML を取得する。"""
 
-    response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
+    response = requests.get(url, headers=REQUEST_HEADERS, timeout=60)
     response.raise_for_status()
-    response.encoding = response.apparent_encoding or response.encoding
-    return response.text
+    return decode_html_bytes(
+        content=response.content,
+        content_type=response.headers.get("Content-Type"),
+        fallback_encoding=response.apparent_encoding or response.encoding,
+    )
 
 
 def save_detail_html(
@@ -115,7 +119,11 @@ def process_session(session: int, skip_existing: bool = False) -> list[Path]:
                 logger.info("スキップ: 既存ファイルあり question_id=%s kind=%s path=%s", question_id, kind, output_path)
                 saved_paths.append(output_path)
                 continue
-            html = fetch_html(str(url))
+            try:
+                html = fetch_html(str(url))
+            except requests.RequestException as exc:
+                logger.warning("取得失敗: question_id=%s kind=%s url=%s error=%s", question_id, kind, url, exc)
+                continue
             output_path = save_detail_html(question_id=question_id, kind=kind, html=html)
             logger.info("保存: question_id=%s kind=%s path=%s", question_id, kind, output_path)
             saved_paths.append(output_path)

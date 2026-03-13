@@ -30,6 +30,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.utils import should_skip_existing
+from src.utils import decode_html_bytes
 
 SOURCE_URL_TEMPLATES = (
     "https://www.shugiin.go.jp/internet/itdb_shitsumon.nsf/html/shitsumon/kaiji{session:03d}_l.htm",
@@ -67,8 +68,11 @@ def fetch_html(url: str) -> str:
 
     response = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
     response.raise_for_status()
-    response.encoding = response.apparent_encoding or response.encoding
-    return response.text
+    return decode_html_bytes(
+        content=response.content,
+        content_type=response.headers.get("Content-Type"),
+        fallback_encoding=response.apparent_encoding or response.encoding,
+    )
 
 
 def fetch_first_available_html(session: int) -> tuple[str, str]:

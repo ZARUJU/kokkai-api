@@ -58,10 +58,51 @@ ATTENDANCE_SECTION_LABELS = {
     "副大臣",
     "大臣政務官",
     "事務局側",
+    "参考人",
     "政府参考人",
     "政府特別補佐人",
 }
 NAME_TOKEN_PATTERN = re.compile(r"^[ぁ-んァ-ヶー一-龥々ゝゞヵヶA-Za-z・]+$")
+ROLE_TOKEN_SUFFIXES = (
+    "大臣",
+    "副大臣",
+    "大臣政務官",
+    "政務官",
+    "審議官",
+    "総括審議官",
+    "参事官",
+    "統括官",
+    "次長",
+    "局長",
+    "部長",
+    "室長",
+    "課長",
+    "所長",
+    "長官",
+    "委員長",
+    "理事長",
+    "理事",
+    "会長",
+    "主査",
+    "室",
+    "長",
+    "官",
+    "員",
+    "教授",
+    "准教授",
+    "名誉教授",
+    "研究員",
+    "研究官",
+    "専門員",
+    "室長",
+    "代表",
+    "副総裁候補者",
+    "フェロー",
+    "ジャーナリスト",
+    "リサーチャー",
+    "ディレクター",
+    "アドバイザー",
+)
 AGENDA_ITEM_END_MARKERS = ("法律案", "予算", "決算", "条約", "承認", "請求", "同意", "請願", "の件", "互選", "選任", "選挙", "辞職")
 
 
@@ -141,6 +182,26 @@ def looks_like_name_token(token: str) -> bool:
     return NAME_TOKEN_PATTERN.fullmatch(text) is not None
 
 
+def is_role_like_token(token: str) -> bool:
+    """肩書きの末尾断片らしいトークンかを判定する。"""
+
+    text = normalize_text(token)
+    if not text:
+        return False
+    return any(text.endswith(suffix) for suffix in ROLE_TOKEN_SUFFIXES)
+
+
+def looks_like_complete_name_token(token: str) -> bool:
+    """単独で氏名として完結していそうなトークンかを判定する。"""
+
+    text = normalize_text(token)
+    if not looks_like_name_token(text):
+        return False
+    if re.fullmatch(r"[ァ-ヶー・]+", text):
+        return False
+    return len(text) >= 4
+
+
 def split_prefix_and_name(text: str) -> tuple[str, str] | None:
     """`役職 氏名君` 形式から、末尾優先で役職と氏名を分離する。"""
 
@@ -154,8 +215,15 @@ def split_prefix_and_name(text: str) -> tuple[str, str] | None:
         return None
 
     name_tokens = [tokens[-1]]
-    if len(tokens) >= 2 and looks_like_name_token(tokens[-2]):
-        name_tokens = [tokens[-2], tokens[-1]]
+    if len(tokens) >= 2 and looks_like_name_token(tokens[-2]) and not is_role_like_token(tokens[-2]):
+        previous_is_katakana = re.fullmatch(r"[ァ-ヶー・]+", normalize_text(tokens[-2])) is not None
+        previous_continues_prior_token = (
+            previous_is_katakana
+            and len(tokens) >= 3
+            and re.search(r"[ァ-ヶー・A-Za-z]$", normalize_text(tokens[-3])) is not None
+        )
+        if not looks_like_complete_name_token(tokens[-1]) or (previous_is_katakana and not previous_continues_prior_token):
+            name_tokens = [tokens[-2], tokens[-1]]
 
     name = normalize_person_name(" ".join(name_tokens))
     prefix = normalize_text(" ".join(tokens[: len(tokens) - len(name_tokens)]))

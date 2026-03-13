@@ -77,6 +77,68 @@ def normalize_text(value: str) -> str:
     return value.strip()
 
 
+def detect_html_charset(content: bytes, content_type: str | None = None) -> str | None:
+    """HTTP ヘッダや HTML 先頭から文字コード名を推定する。"""
+
+    if content_type:
+        match = re.search(r"charset=([A-Za-z0-9._-]+)", content_type, flags=re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+    head = content[:4096]
+    meta_patterns = (
+        rb"<meta[^>]+charset=['\"]?\s*([A-Za-z0-9._-]+)",
+        rb"<meta[^>]+content=['\"][^'\"]*charset=([A-Za-z0-9._-]+)",
+    )
+    for pattern in meta_patterns:
+        match = re.search(pattern, head, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).decode("ascii", errors="ignore")
+    return None
+
+
+def normalize_html_encoding_name(encoding: str | None) -> str | None:
+    """HTML デコード向けにエンコーディング名を正規化する。"""
+
+    if not encoding:
+        return None
+
+    normalized = encoding.strip().lower().replace("-", "_")
+    if normalized in {"shift_jis", "shiftjis", "sjis", "ms_kanji", "x_sjis"}:
+        return "cp932"
+    if normalized in {"windows_31j", "ms932", "cp943c"}:
+        return "cp932"
+    if normalized == "utf8":
+        return "utf-8"
+    if normalized in {"eucjp", "euc_jp"}:
+        return "euc_jp"
+    return encoding.strip()
+
+
+def decode_html_bytes(content: bytes, content_type: str | None = None, fallback_encoding: str | None = None) -> str:
+    """HTML bytes を推定した文字コードで文字列へ変換する。"""
+
+    candidates: list[str] = []
+    for encoding in (
+        "cp932",
+        detect_html_charset(content=content, content_type=content_type),
+        fallback_encoding,
+        "utf-8",
+        "shift_jis",
+        "euc_jp",
+    ):
+        normalized = normalize_html_encoding_name(encoding)
+        if normalized and normalized.lower() not in {candidate.lower() for candidate in candidates}:
+            candidates.append(normalized)
+
+    for encoding in candidates:
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("utf-8", errors="replace")
+
+
 def strip_agenda_item_prefix(value: str) -> str:
     """案件見出し先頭の番号や日程ラベルを除去する。"""
 
