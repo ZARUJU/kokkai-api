@@ -30,7 +30,28 @@
     </footer>
     <script>
       (() => {
+        function updateTabQueryParam(targetId) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", targetId);
+          window.history.replaceState({}, "", url);
+        }
+
+        function syncTabFieldForGetForms(targetId) {
+          const forms = document.querySelectorAll('form[method="get"]');
+          for (const form of forms) {
+            let input = form.querySelector('input[name="tab"]');
+            if (!input) {
+              input = document.createElement("input");
+              input.type = "hidden";
+              input.name = "tab";
+              form.appendChild(input);
+            }
+            input.value = targetId;
+          }
+        }
+
         const tabRoots = document.querySelectorAll("[data-tab-root]");
+        const requestedTab = new URL(window.location.href).searchParams.get("tab");
         for (const root of tabRoots) {
           const buttons = Array.from(root.querySelectorAll("[data-tab-target]"));
           const panels = Array.from(root.querySelectorAll(".tab-panel"));
@@ -38,7 +59,8 @@
             continue;
           }
 
-          function activateTab(targetId) {
+          function activateTab(targetId, options = {}) {
+            const shouldSyncUrl = options.syncUrl ?? true;
             for (const button of buttons) {
               const active = button.dataset.tabTarget === targetId;
               button.classList.toggle("is-active", active);
@@ -50,10 +72,26 @@
               panel.classList.toggle("is-active", active);
               panel.hidden = !active;
             }
+
+            if (shouldSyncUrl) {
+              updateTabQueryParam(targetId);
+              syncTabFieldForGetForms(targetId);
+            }
           }
 
           for (const button of buttons) {
             button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
+          }
+
+          const defaultButton = buttons.find((button) => button.classList.contains("is-active"));
+          const initialTarget = buttons.some(
+            (button) => button.dataset.tabTarget === requestedTab
+          )
+            ? requestedTab
+            : defaultButton?.dataset.tabTarget;
+          if (initialTarget) {
+            activateTab(initialTarget, { syncUrl: false });
+            syncTabFieldForGetForms(initialTarget);
           }
         }
       })();
