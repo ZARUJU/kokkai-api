@@ -41,7 +41,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import KokkaiMeetingApiDataset, KokkaiMeetingRecord, KokkaiSpeechRecord
-from src.utils import should_skip_existing
+from src.utils import remember_fetched_output, should_skip_fetch_output
 
 SOURCE_URL = "https://kokkai.ndl.go.jp/api/meeting"
 OUTPUT_DIR = Path("tmp/kaigiroku/meeting")
@@ -135,14 +135,14 @@ def save_dataset(dataset: KokkaiMeetingApiDataset, output_dir: Path = OUTPUT_DIR
         json.dumps(dataset.model_dump(mode="json", exclude_none=True), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    return output_path
+    return remember_fetched_output(output_path)
 
 
 def process_session(session: int, skip_existing: bool = False, output_dir: Path = OUTPUT_DIR) -> Path:
     """指定回次の会議録を取得して保存する。"""
 
     output_path = output_dir / f"{session}.json"
-    if should_skip_existing(output_path, skip_existing):
+    if should_skip_fetch_output(output_path, skip_existing):
         logger.info("スキップ: 既存ファイルあり session=%s path=%s", session, output_path)
         return output_path
 

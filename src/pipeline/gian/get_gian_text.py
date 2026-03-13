@@ -30,7 +30,12 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import GianListDataset
-from src.utils import build_gian_bill_id, build_text_document_filename, should_skip_existing
+from src.utils import (
+    build_gian_bill_id,
+    build_text_document_filename,
+    remember_fetched_output,
+    should_skip_fetch_output,
+)
 
 INPUT_DIR = Path("tmp/gian/list")
 DETAIL_ROOT = Path("tmp/gian/detail")
@@ -119,7 +124,7 @@ def save_text_html(bill_id: str, html: str, detail_root: Path = DETAIL_ROOT) -> 
     output_path = detail_root / bill_id / "honbun" / "index.html"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
-    return output_path
+    return remember_fetched_output(output_path)
 
 
 def save_document_html(bill_id: str, url: str, html: str, detail_root: Path = DETAIL_ROOT) -> Path:
@@ -129,7 +134,7 @@ def save_document_html(bill_id: str, url: str, html: str, detail_root: Path = DE
     output_path = detail_root / bill_id / "honbun" / "documents" / filename
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
-    return output_path
+    return remember_fetched_output(output_path)
 
 
 def process_session(session: int, skip_existing: bool = False) -> list[Path]:
@@ -159,7 +164,7 @@ def process_session(session: int, skip_existing: bool = False) -> list[Path]:
         )
 
         text_path = DETAIL_ROOT / bill_id / "honbun" / "index.html"
-        if should_skip_existing(text_path, skip_existing):
+        if should_skip_fetch_output(text_path, skip_existing):
             text_html = text_path.read_text(encoding="utf-8")
             logger.info("スキップ: 既存ファイルあり bill_id=%s path=%s", bill_id, text_path)
             saved_paths.append(text_path)
@@ -183,7 +188,7 @@ def process_session(session: int, skip_existing: bool = False) -> list[Path]:
         for document_url in extract_document_urls(text_html, str(item.text_url)):
             filename = build_text_document_filename(document_url)
             document_path = DETAIL_ROOT / bill_id / "honbun" / "documents" / filename
-            if should_skip_existing(document_path, skip_existing):
+            if should_skip_fetch_output(document_path, skip_existing):
                 logger.info("スキップ: 既存ファイルあり bill_id=%s path=%s", bill_id, document_path)
                 saved_paths.append(document_path)
                 continue

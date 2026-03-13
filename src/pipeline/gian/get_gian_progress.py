@@ -31,7 +31,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import GianListDataset
-from src.utils import build_gian_bill_id, should_skip_existing
+from src.utils import build_gian_bill_id, remember_fetched_output, should_skip_fetch_output
 
 INPUT_DIR = Path("tmp/gian/list")
 OUTPUT_ROOT = Path("tmp/gian/detail")
@@ -101,7 +101,7 @@ def save_progress_html(
     output_path = output_root / bill_id / "progress" / f"{session}.html"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
-    return output_path
+    return remember_fetched_output(output_path)
 
 
 def process_session(session: int, skip_existing: bool = False) -> list[Path]:
@@ -126,7 +126,7 @@ def process_session(session: int, skip_existing: bool = False) -> list[Path]:
             subcategory=item.subcategory,
         )
         output_path = OUTPUT_ROOT / bill_id / "progress" / f"{session}.html"
-        if should_skip_existing(output_path, skip_existing):
+        if should_skip_fetch_output(output_path, skip_existing):
             logger.info("スキップ: 既存ファイルあり bill_id=%s path=%s", bill_id, output_path)
             saved_paths.append(output_path)
             continue

@@ -28,7 +28,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.utils import should_skip_existing
+from src.utils import remember_fetched_output, should_skip_fetch_output
 
 SOURCE_URL_TEMPLATE = "https://www.shugiin.go.jp/internet/itdb_gian.nsf/html/gian/kaiji{session}.htm"
 OUTPUT_DIR = Path("tmp/gian/list")
@@ -72,14 +72,14 @@ def save_html(session: int, html: str, output_dir: Path = OUTPUT_DIR) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{session}.html"
     output_path.write_text(html, encoding="utf-8")
-    return output_path
+    return remember_fetched_output(output_path)
 
 
 def process_session(session: int, output_dir: Path = OUTPUT_DIR, skip_existing: bool = False) -> Path:
     """指定回次の議案一覧ページ raw HTML を取得して保存する。"""
 
     output_path = output_dir / f"{session}.html"
-    if should_skip_existing(output_path, skip_existing):
+    if should_skip_fetch_output(output_path, skip_existing):
         logger.info("スキップ: 既存ファイルあり session=%s path=%s", session, output_path)
         return output_path
 

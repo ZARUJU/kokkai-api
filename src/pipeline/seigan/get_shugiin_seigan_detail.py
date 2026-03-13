@@ -29,7 +29,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import SeiganListDataset
-from src.utils import build_shugiin_seigan_id, should_skip_existing
+from src.utils import build_shugiin_seigan_id, remember_fetched_output, should_skip_fetch_output
 
 INPUT_DIR = Path("tmp/seigan/shugiin/list")
 DETAIL_ROOT = Path("tmp/seigan/shugiin/detail")
@@ -69,7 +69,7 @@ def save_html(petition_id: str, html: str, detail_root: Path = DETAIL_ROOT) -> P
     output_path = detail_root / petition_id / "detail.html"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
-    return output_path
+    return remember_fetched_output(output_path)
 
 
 def process_session(session: int, skip_existing: bool = False) -> list[Path]:
@@ -83,7 +83,7 @@ def process_session(session: int, skip_existing: bool = False) -> list[Path]:
             continue
         petition_id = build_shugiin_seigan_id(session_number=session, petition_number=item.petition_number)
         output_path = DETAIL_ROOT / petition_id / "detail.html"
-        if should_skip_existing(output_path, skip_existing):
+        if should_skip_fetch_output(output_path, skip_existing):
             logger.info("スキップ: 既存ファイルあり petition_id=%s path=%s", petition_id, output_path)
             saved_paths.append(output_path)
             continue

@@ -38,7 +38,13 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import Kaiki, KaikiDataset
-from src.utils import normalize_text, parse_int, parse_japanese_date, should_skip_existing
+from src.utils import (
+    normalize_text,
+    parse_int,
+    parse_japanese_date,
+    remember_fetched_output,
+    should_skip_fetch_output,
+)
 
 SOURCE_URL = "https://www.shugiin.go.jp/internet/itdb_annai.nsf/html/statics/shiryo/kaiki.htm"
 OUTPUT_PATH = Path("data/kaiki.json")
@@ -255,13 +261,14 @@ def save_dataset(dataset: KaikiDataset, output_path: Path = OUTPUT_PATH) -> None
         json.dumps(dataset.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    remember_fetched_output(output_path)
 
 
 def main() -> None:
     """会期一覧の取得から保存までを実行する。"""
 
     args = parse_args()
-    if should_skip_existing(OUTPUT_PATH, args.skip_existing):
+    if should_skip_fetch_output(OUTPUT_PATH, args.skip_existing):
         return
 
     html = fetch_html()

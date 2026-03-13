@@ -36,14 +36,20 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import ShugiinShitsumonListDataset
-from src.utils import build_shugiin_shitsumon_id, should_skip_existing
-from src.utils import decode_html_bytes
+from src.utils import (
+    build_shugiin_shitsumon_id,
+    decode_html_bytes,
+    has_complete_answer_received_shitsumon_detail,
+    remember_fetched_output,
+    should_skip_fetch_output,
+)
 
 INPUT_DIR = Path("tmp/shitsumon/shugiin/list")
 DETAIL_ROOT = Path("tmp/shitsumon/shugiin/detail")
 REQUEST_HEADERS = {
     "User-Agent": "kokkai-api/0.1 (+https://www.shugiin.go.jp/)",
 }
+COMPLETE_DETAIL_HTML_NAMES = ("progress.html", "question.html", "answer.html")
 logger = logging.getLogger(__name__)
 
 
@@ -90,7 +96,7 @@ def save_detail_html(
     output_path = detail_root / question_id / f"{kind}.html"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
-    return output_path
+    return remember_fetched_output(output_path)
 
 
 def process_session(session: int, skip_existing: bool = False) -> list[Path]:
@@ -105,17 +111,25 @@ def process_session(session: int, skip_existing: bool = False) -> list[Path]:
             session_number=session,
             question_number=item.question_number,
         )
+        detail_dir = DETAIL_ROOT / question_id
         targets = (
             ("progress", item.progress_url),
             ("question", item.question_html_url),
             ("answer", item.answer_html_url),
         )
+        if has_complete_answer_received_shitsumon_detail(detail_dir, COMPLETE_DETAIL_HTML_NAMES):
+            logger.info("スキップ: 既存個票が答弁受理済みかつ必要HTMLあり question_id=%s", question_id)
+            for kind, _ in targets:
+                output_path = detail_dir / f"{kind}.html"
+                if output_path.exists():
+                    saved_paths.append(output_path)
+            continue
         for kind, url in targets:
             if url is None:
                 logger.info("スキップ: urlなし question_id=%s kind=%s", question_id, kind)
                 continue
-            output_path = DETAIL_ROOT / question_id / f"{kind}.html"
-            if should_skip_existing(output_path, skip_existing):
+            output_path = detail_dir / f"{kind}.html"
+            if should_skip_fetch_output(output_path, skip_existing):
                 logger.info("スキップ: 既存ファイルあり question_id=%s kind=%s path=%s", question_id, kind, output_path)
                 saved_paths.append(output_path)
                 continue

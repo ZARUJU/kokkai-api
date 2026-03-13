@@ -1,6 +1,7 @@
 """文字列整形や日付変換に関する補助関数。"""
 
 import hashlib
+import json
 import re
 from datetime import date, time
 from pathlib import Path, PurePosixPath
@@ -43,6 +44,7 @@ KANJI_UNITS = {
     "百": 100,
     "千": 1000,
 }
+FETCHED_OUTPUT_PATHS_IN_RUN: set[Path] = set()
 
 
 def build_shugiin_shitsumon_id(session_number: int, question_number: int) -> str:
@@ -387,3 +389,40 @@ def should_skip_existing(path: Path, skip_existing: bool) -> bool:
     """`--skip-existing` 指定時に既存ファイルをスキップするか判定する。"""
 
     return skip_existing and path.exists()
+
+
+def should_skip_fetch_output(path: Path, skip_existing: bool) -> bool:
+    """取得系で既存ファイルまたは同一実行中の保存済みファイルをスキップする。"""
+
+    normalized_path = path.resolve()
+    if normalized_path in FETCHED_OUTPUT_PATHS_IN_RUN and path.exists():
+        return True
+    return should_skip_existing(path, skip_existing)
+
+
+def remember_fetched_output(path: Path) -> Path:
+    """同一実行中に保存済みの取得結果として記録する。"""
+
+    FETCHED_OUTPUT_PATHS_IN_RUN.add(path.resolve())
+    return path
+
+
+def has_complete_answer_received_shitsumon_detail(detail_dir: Path, required_html_names: tuple[str, ...]) -> bool:
+    """既存の質問主意書個票 JSON が答弁受理済みかつ必要 HTML が揃っているかを返す。"""
+
+    index_path = detail_dir / "index.json"
+    if not index_path.exists():
+        return False
+    if any(not (detail_dir / html_name).exists() for html_name in required_html_names):
+        return False
+    try:
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return False
+
+    progress = payload.get("progress")
+    if not isinstance(progress, dict):
+        return False
+    answer_received_at = progress.get("answer_received_at")
+    status = progress.get("status")
+    return bool(answer_received_at) or status == "答弁受理"
