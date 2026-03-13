@@ -26,6 +26,21 @@
 
 配布用として確定した JSON は `data/` に置き、raw HTML や途中生成物は `tmp/` に残す。
 
+## ドキュメント
+
+データ種別ごとの取得元・中間生成物・配布 JSON の仕様は `docs/` にまとめています。
+
+- `docs/gian_data.md`
+  議案データの取得元、生成フロー、配布形式
+- `docs/kaigiroku_data.md`
+  会議録データの取得元、生成フロー、配布形式
+- `docs/seigan_data.md`
+  請願データの取得元、生成フロー、配布形式
+- `docs/shitsumon_data.md`
+  質問主意書データの取得元、生成フロー、配布形式
+- `docs/people_data.md`
+  人物インデックスの入力元、集約方法、配布形式
+
 ## セットアップ
 
 Python 3.11 以上を前提としています。
@@ -39,9 +54,9 @@ uv sync
 回次をまとめて処理する入口として `cli.py` を用意しています。
 
 - 引数なし
-  会期一覧を更新した上で、最新2回分の議案・請願・質問主意書を強制更新しながら取得・整形・`data/` 生成まで実行
+  会期一覧を更新した上で、最新2回分の会議録・議案・請願・質問主意書を強制更新しながら取得・整形・`data/` 生成まで実行
 - 引数あり
-  指定回次だけ処理。既定では取得済み raw データを再利用し、`--force` 指定時のみ再取得
+  指定回次だけ処理。既定では取得済み raw データを再利用し、`--force` 指定時のみ再取得。`data/kaiki.json` がなくても実行可能
 - `--parse-only`
   取得済みの raw HTML / 中間 JSON だけを使って、パースと `data/` 再生成だけを行う
 
@@ -71,6 +86,60 @@ uv run python cli.py 217 --parse-only
 
 ```bash
 uv run python src/pipeline/kaiki/get_kaiki.py --skip-existing
+```
+
+### `get_meeting_records.py`
+
+国会会議録検索システム API の `meeting` エンドポイントを使い、指定回次の会議録 JSON を取得して保存します。
+
+- 入力
+  `https://kokkai.ndl.go.jp/api/meeting`
+- 引数
+  `session`: 取得対象の国会回次
+  `--skip-existing`: `tmp/kaigiroku/meeting/{回次}.json` が既にある場合は取得をスキップ
+- 出力
+  `tmp/kaigiroku/meeting/{回次}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/kaigiroku/get_meeting_records.py 221 --skip-existing
+```
+
+### `parse_meeting_records.py`
+
+保存済みの会議録 API JSON をパースし、会議冒頭と終盤の発言から開会・散会時刻、出席者、委員異動、付託案件、本日の案件を抽出して保存します。衆議院・参議院で異なる冒頭書式は同一 JSON 形式に正規化します。
+
+- 入力
+  `tmp/kaigiroku/meeting/{回次}.json`
+- 引数
+  `session`: 取得対象の国会回次
+- 出力
+  `tmp/kaigiroku/parsed/{回次}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/kaigiroku/parse_meeting_records.py 221
+```
+
+### `build_kaigiroku_distribution.py`
+
+保存済みの会議録パース結果から、配布用の一覧 JSON と個票 JSON を `data/kaigiroku/` に生成します。`tmp` に残す `intro_text` や `closing_text` のような解析補助情報、付託案件は配布しません。本日の案件は照合可否にかかわらず配布し、議案・請願と照合できたものには ID を付与します。
+
+- 入力
+  `tmp/kaigiroku/parsed/{回次}.json`
+  `data/gian/list/{回次}.json`
+- 引数
+  `sessions...`: 対象の国会回次。省略時は `tmp/kaigiroku/parsed/*.json` を全件処理
+- 出力
+  `data/kaigiroku/list/{回次}.json`
+  `data/kaigiroku/detail/{issue_id}.json`
+
+実行例:
+
+```bash
+uv run python src/pipeline/kaigiroku/build_kaigiroku_distribution.py 221
 ```
 
 ### `get_gian_list.py`
