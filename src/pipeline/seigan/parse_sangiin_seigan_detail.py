@@ -28,9 +28,10 @@ import json
 import sys
 from collections import Counter
 from datetime import datetime, timezone
+from itertools import zip_longest
 from pathlib import Path
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
@@ -89,6 +90,12 @@ def parse_summary_text(html: str) -> str | None:
     return None
 
 
+def extract_cell_lines(cell: Tag) -> list[str]:
+    """セル内の `<br>` 区切りを保って行配列に変換する。"""
+
+    return [normalize_text(line) for line in cell.get_text("\n", strip=False).splitlines() if normalize_text(line)]
+
+
 def parse_similar_page(html: str) -> tuple[str | None, int | None, int | None, list[SeiganPresenter]]:
     """同趣旨一覧ページから件数や紹介議員一覧を抽出する。"""
 
@@ -112,16 +119,26 @@ def parse_similar_page(html: str) -> tuple[str | None, int | None, int | None, l
         if texts and texts[0] == "受理番号":
             continue
         if len(cells) >= 6 and parse_int(texts[0] or "") is not None:
-            presenters.append(
-                SeiganPresenter(
-                    receipt_number=parse_int(texts[0]),
-                    presenter_name=normalize_person_name(texts[1]),
-                    party_name=texts[2] or None,
-                    received_at=parse_japanese_date(texts[3]),
-                    referred_at=parse_japanese_date(texts[4]),
-                    result=texts[5] or None,
+            presenter_names = extract_cell_lines(cells[1]) or ([texts[1]] if len(texts) > 1 and texts[1] else [])
+            party_names = extract_cell_lines(cells[2]) or ([texts[2]] if len(texts) > 2 and texts[2] else [])
+            receipt_number = parse_int(texts[0])
+            received_at = parse_japanese_date(texts[3])
+            referred_at = parse_japanese_date(texts[4])
+            result = texts[5] or None
+
+            for presenter_name, party_name in zip_longest(presenter_names, party_names, fillvalue=None):
+                if not presenter_name:
+                    continue
+                presenters.append(
+                    SeiganPresenter(
+                        receipt_number=receipt_number,
+                        presenter_name=normalize_person_name(presenter_name),
+                        party_name=party_name or None,
+                        received_at=received_at,
+                        referred_at=referred_at,
+                        result=result,
+                    )
                 )
-            )
 
     outcome = None
     if presenters:

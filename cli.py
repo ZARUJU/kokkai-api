@@ -3,25 +3,29 @@
 引数:
     - sessions: 対象の国会回次。省略時は会期一覧から最新2回分を選ぶ
     - --force: 取得済み raw データがあっても再取得する
+    - --parse-only: 取得済み raw / 中間データだけを使って再パースと配布用 JSON 更新を行う
 
 入力:
     - 衆議院 会期一覧ページ
     - 衆議院 議案一覧・進捗・本文ページ
+    - 衆参両院 請願一覧・個別ページ
     - 衆参両院 質問主意書一覧・個別ページ
     - 既存の `data/kaiki.json`（`--force` なしで存在する場合）
 
 出力:
     - `data/kaiki.json`
     - `tmp/gian/**`
+    - `tmp/seigan/**`
     - `tmp/shitsumon/**`
     - `data/gian/**`
+    - `data/seigan/**`
     - `data/shitsumon/**`
     - `data/people/index.json`
 
 主な内容:
     - 最新回次の自動判定
     - 取得系パイプラインの `--skip-existing` 相当制御
-    - 議案データと質問主意書データの統合実行
+    - 議案・請願・質問主意書データの統合実行
 """
 
 from __future__ import annotations
@@ -30,12 +34,19 @@ import argparse
 import logging
 from pathlib import Path
 
+import requests
+
 from src.models import KaikiDataset
 from src.pipeline.gian import build_gian_distribution
 from src.pipeline.gian import get_gian_list, get_gian_progress, get_gian_text
 from src.pipeline.gian import parse_gian_list, parse_gian_progress, parse_gian_text
 from src.pipeline.kaiki import get_kaiki
 from src.pipeline.people import build_people_index
+from src.pipeline.seigan import build_seigan_distribution
+from src.pipeline.seigan import get_sangiin_seigan_detail, get_sangiin_seigan_list
+from src.pipeline.seigan import get_shugiin_seigan_detail, get_shugiin_seigan_list
+from src.pipeline.seigan import parse_sangiin_seigan_detail, parse_sangiin_seigan_list
+from src.pipeline.seigan import parse_shugiin_seigan_detail, parse_shugiin_seigan_list
 from src.pipeline.shitsumon import build_shitsumon_distribution
 from src.pipeline.shitsumon import get_sangiin_shitsumon_detail, get_sangiin_shitsumon_list
 from src.pipeline.shitsumon import get_shugiin_shitsumon_detail, get_shugiin_shitsumon_list
@@ -57,6 +68,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="取得済み raw データがあっても再取得する。引数なし時は自動で有効",
     )
+    parser.add_argument(
+        "--parse-only",
+        action="store_true",
+        help="取得済み raw / 中間データから再パースと配布用 JSON 更新のみを行う",
+    )
     return parser.parse_args()
 
 
@@ -64,6 +80,8 @@ def load_or_fetch_kaiki(force: bool) -> KaikiDataset:
     """会期一覧を取得または既存 JSON から読み込む。"""
 
     if force or not KAIKI_PATH.exists():
+        if not force and not KAIKI_PATH.exists():
+            raise FileNotFoundError(f"会期一覧が見つかりません: {KAIKI_PATH}")
         logger.info("会期一覧更新開始: force=%s", force)
         html = get_kaiki.fetch_html()
         dataset = get_kaiki.build_dataset(html)
@@ -87,37 +105,89 @@ def select_sessions(args: argparse.Namespace, kaiki_dataset: KaikiDataset) -> tu
     return latest_sessions, True
 
 
-def run_gian_pipeline(session: int, skip_existing: bool) -> None:
+def is_http_not_found(error: requests.HTTPError) -> bool:
+    """HTTP 404 かどうかを返す。"""
+
+    response = error.response
+    return response is not None and response.status_code == 404
+
+
+def run_gian_pipeline(session: int, skip_existing: bool, parse_only: bool = False) -> None:
     """議案パイプラインを1回次分実行する。"""
 
-    logger.info("議案処理開始: session=%s skip_existing=%s", session, skip_existing)
-    get_gian_list.process_session(session, skip_existing=skip_existing)
+    logger.info("議案処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if not parse_only:
+        get_gian_list.process_session(session, skip_existing=skip_existing)
     parse_gian_list.process_session(session)
-    get_gian_progress.process_session(session, skip_existing=skip_existing)
+    if not parse_only:
+        get_gian_progress.process_session(session, skip_existing=skip_existing)
     parse_gian_progress.process_session(session)
-    get_gian_text.process_session(session, skip_existing=skip_existing)
+    if not parse_only:
+        get_gian_text.process_session(session, skip_existing=skip_existing)
     parse_gian_text.process_session(session)
     logger.info("議案処理完了: session=%s", session)
 
 
-def run_shugiin_shitsumon_pipeline(session: int, skip_existing: bool) -> None:
+def run_shugiin_shitsumon_pipeline(session: int, skip_existing: bool, parse_only: bool = False) -> None:
     """衆議院質問主意書パイプラインを1回次分実行する。"""
 
-    logger.info("衆議院質問主意書処理開始: session=%s skip_existing=%s", session, skip_existing)
-    get_shugiin_shitsumon_list.process_session(session, skip_existing=skip_existing)
+    logger.info("衆議院質問主意書処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if not parse_only:
+        get_shugiin_shitsumon_list.process_session(session, skip_existing=skip_existing)
     parse_shugiin_shitsumon_list.process_session(session)
-    get_shugiin_shitsumon_detail.process_session(session, skip_existing=skip_existing)
+    if not parse_only:
+        get_shugiin_shitsumon_detail.process_session(session, skip_existing=skip_existing)
     parse_shugiin_shitsumon_detail.process_session(session)
     logger.info("衆議院質問主意書処理完了: session=%s", session)
 
 
-def run_sangiin_shitsumon_pipeline(session: int, skip_existing: bool) -> None:
+def run_shugiin_seigan_pipeline(session: int, skip_existing: bool, parse_only: bool = False) -> None:
+    """衆議院請願パイプラインを1回次分実行する。"""
+
+    logger.info("衆議院請願処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if not parse_only:
+        try:
+            get_shugiin_seigan_list.process_session(session, skip_existing=skip_existing)
+        except requests.HTTPError as exc:
+            if is_http_not_found(exc):
+                logger.warning("衆議院請願一覧が未公開のためスキップ: session=%s", session)
+                return
+            raise
+    parse_shugiin_seigan_list.process_session(session)
+    if not parse_only:
+        get_shugiin_seigan_detail.process_session(session, skip_existing=skip_existing)
+    parse_shugiin_seigan_detail.process_session(session)
+    logger.info("衆議院請願処理完了: session=%s", session)
+
+
+def run_sangiin_seigan_pipeline(session: int, skip_existing: bool, parse_only: bool = False) -> None:
+    """参議院請願パイプラインを1回次分実行する。"""
+
+    logger.info("参議院請願処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if not parse_only:
+        try:
+            get_sangiin_seigan_list.process_session(session, skip_existing=skip_existing)
+        except requests.HTTPError as exc:
+            if is_http_not_found(exc):
+                logger.warning("参議院請願一覧が未公開のためスキップ: session=%s", session)
+                return
+            raise
+    parse_sangiin_seigan_list.process_session(session)
+    if not parse_only:
+        get_sangiin_seigan_detail.process_session(session, skip_existing=skip_existing)
+    parse_sangiin_seigan_detail.process_session(session)
+    logger.info("参議院請願処理完了: session=%s", session)
+
+
+def run_sangiin_shitsumon_pipeline(session: int, skip_existing: bool, parse_only: bool = False) -> None:
     """参議院質問主意書パイプラインを1回次分実行する。"""
 
-    logger.info("参議院質問主意書処理開始: session=%s skip_existing=%s", session, skip_existing)
-    get_sangiin_shitsumon_list.process_session(session, skip_existing=skip_existing)
+    logger.info("参議院質問主意書処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if not parse_only:
+        get_sangiin_shitsumon_list.process_session(session, skip_existing=skip_existing)
     parse_sangiin_shitsumon_list.process_session(session)
-    get_sangiin_shitsumon_detail.process_session(session, skip_existing=skip_existing)
+    if not parse_only:
+        get_sangiin_shitsumon_detail.process_session(session, skip_existing=skip_existing)
     parse_sangiin_shitsumon_detail.process_session(session)
     logger.info("参議院質問主意書処理完了: session=%s", session)
 
@@ -128,6 +198,8 @@ def run_distribution_builders(sessions: list[int]) -> None:
     normalized_sessions = sorted(set(sessions))
     logger.info("配布データ生成開始: sessions=%s", normalized_sessions)
     build_gian_distribution.process_sessions(normalized_sessions)
+    for house in build_seigan_distribution.HOUSE_CHOICES:
+        build_seigan_distribution.process_house_sessions(house=house, sessions=normalized_sessions)
     for house in build_shitsumon_distribution.HOUSE_CHOICES:
         build_shitsumon_distribution.process_house_sessions(house=house, sessions=normalized_sessions)
     build_people_index.process()
@@ -139,15 +211,19 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = parse_args()
-    kaiki_dataset = load_or_fetch_kaiki(force=args.force or not args.sessions)
+    kaiki_dataset = load_or_fetch_kaiki(force=(args.force or not args.sessions) and not args.parse_only)
     sessions, force = select_sessions(args, kaiki_dataset)
     skip_existing = not force
+    if args.parse_only:
+        skip_existing = True
 
-    logger.info("対象回次: sessions=%s force=%s", sessions, force)
+    logger.info("対象回次: sessions=%s force=%s parse_only=%s", sessions, force, args.parse_only)
     for session in sessions:
-        run_gian_pipeline(session=session, skip_existing=skip_existing)
-        run_shugiin_shitsumon_pipeline(session=session, skip_existing=skip_existing)
-        run_sangiin_shitsumon_pipeline(session=session, skip_existing=skip_existing)
+        run_gian_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
+        run_shugiin_seigan_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
+        run_sangiin_seigan_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
+        run_shugiin_shitsumon_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
+        run_sangiin_shitsumon_pipeline(session=session, skip_existing=skip_existing, parse_only=args.parse_only)
 
     run_distribution_builders(sessions)
 

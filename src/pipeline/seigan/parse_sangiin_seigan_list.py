@@ -109,9 +109,6 @@ def build_dataset(session: int, html: str) -> SeiganListDataset:
             continue
         items.extend(parse_table_items(table=table, committee_name=committee_name, committee_code=committee_code, base_url=source_url))
 
-    if not items:
-        raise ValueError("参議院請願一覧データを抽出できませんでした。")
-
     return SeiganListDataset(
         source_url=source_url,
         fetched_at=datetime.now(timezone.utc),
@@ -135,6 +132,8 @@ def process_session(session: int, input_dir: Path = INPUT_DIR, output_dir: Path 
 
     logger.info("参議院請願一覧JSONパース開始: session=%s", session)
     dataset = build_dataset(session=session, html=load_html(session=session, input_dir=input_dir))
+    if not dataset.items:
+        logger.warning("参議院請願一覧に対象データなし: session=%s", session)
     output_path = save_dataset(dataset=dataset, session=session, output_dir=output_dir)
     logger.info("保存: session=%s path=%s items=%s", session, output_path, len(dataset.items))
     logger.info("参議院請願一覧JSONパース完了: session=%s", session)

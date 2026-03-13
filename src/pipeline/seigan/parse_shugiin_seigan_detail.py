@@ -38,7 +38,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import SeiganDetailDataset, SeiganListDataset, SeiganPresenter
-from src.utils import build_shugiin_seigan_id, normalize_text, parse_int
+from src.utils import build_shugiin_seigan_id, normalize_person_name, normalize_text, parse_int
 
 INPUT_DIR = Path("tmp/seigan/shugiin/list")
 DETAIL_ROOT = Path("tmp/seigan/shugiin/detail")
@@ -113,12 +113,12 @@ def parse_presenters(cell: Tag) -> list[SeiganPresenter]:
     for line in [normalize_text(part) for part in cell.get_text("\n", strip=False).splitlines()]:
         if not line or "紹介議員一覧" in line:
             continue
-        match = re.search(r"受理番号\s*(\d+)番\s*(.+)", line)
+        match = re.search(r"受理番号\s*(\d+)(?:番|号)\s*(.+)", line)
         if match:
             presenters.append(
                 SeiganPresenter(
                     receipt_number=int(match.group(1)),
-                    presenter_name=normalize_text(match.group(2)),
+                    presenter_name=normalize_person_name(match.group(2)),
                 )
             )
     return presenters
