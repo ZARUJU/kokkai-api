@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <p class="eyebrow">{{ meeting.name_of_house }}会議録</p>
+  <h1>{{ meeting.name_of_meeting }} {{ meeting.issue }}</h1>
+  <dl class="meta-list">
+    <div><dt>issue_id</dt><dd><code>{{ meeting.issue_id }}</code></dd></div>
+    <div><dt>回次</dt><dd>第{{ meeting.session }}回</dd></div>
+    <div><dt>開催日</dt><dd>{{ meeting.date }}</dd></div>
+    <div><dt>開会</dt><dd>{{ meeting.opening_time or "-" }}</dd></div>
+    <div><dt>散会</dt><dd>{{ meeting.closing_time or "-" }}</dd></div>
+    <div><dt>発言件数</dt><dd>{{ meeting.speech_count }}</dd></div>
+  </dl>
+  {% if meeting.meeting_url %}
+  <p><a class="external-link" href="{{ meeting.meeting_url }}" target="_blank" rel="noopener noreferrer">国会会議録本文を見る</a></p>
+  {% endif %}
+</section>
+
+<section class="card" data-tab-root>
+  <div class="tab-bar" role="tablist" aria-label="会議録詳細表示">
+    <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab-target="meeting-agenda-panel">本日の案件 <span class="badge">{{ meeting.agenda_items|length }}</span></button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="meeting-attendance-panel">出席者 <span class="badge">{{ meeting.attendance|length }}</span></button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="meeting-json-panel">JSON</button>
+  </div>
+
+  <section class="tab-panel is-active" id="meeting-agenda-panel">
+    <h2>本日の案件</h2>
+    <ul class="item-list compact">
+      {% for item in meeting.agenda_items %}
+      <li>
+        <strong>{{ item.text }}</strong>
+        {% if item.item_type %}
+        <div class="subtle">種別: {{ item.item_type }}</div>
+        {% endif %}
+        {% if item.bill_id %}
+        <div class="subtle">bill_id: {{ item.bill_id }}</div>
+        <a href="{{ url_for('gian_detail', bill_id=item.bill_id) }}">議案を見る</a>
+        {% elif item.petition_id %}
+        <div class="subtle">petition_id: {{ item.petition_id }}</div>
+        <a href="{{ url_for('seigan_detail', house='shugiin' if item.petition_id.startswith('shu-') else 'sangiin', petition_id=item.petition_id) }}">請願を見る</a>
+        {% endif %}
+      </li>
+      {% else %}
+      <li>本日の案件はありません。</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="tab-panel" id="meeting-attendance-panel" hidden>
+    <h2>出席者</h2>
+    {% if grouped_attendance %}
+    {% for group in grouped_attendance %}
+    <section class="committee-section">
+      <div class="section-heading">
+        <h3>{{ group["section"] }}</h3>
+        <span class="name-pill static">{{ group["count"] }}名</span>
+      </div>
+      <ul class="item-list compact">
+        {% for item in group["items"] %}
+        <li>
+          <strong>{{ item["role"] }}</strong>
+          {% if item["title"] %}
+          <div class="subtle">{{ item["title"] }}</div>
+          {% endif %}
+          <div>
+            {% for name in item["names"] %}
+            <a href="{{ url_for('person_detail', person_key=name|person_key) }}">{{ name }}</a>{% if not loop.last %}、{% endif %}
+            {% endfor %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+    {% else %}
+    <ul class="item-list compact">
+      <li>出席者情報はありません。</li>
+    </ul>
+    {% endif %}
+  </section>
+
+  <section class="tab-panel" id="meeting-json-panel" hidden>
+    <h2>JSON</h2>
+    <pre class="json-block">{{ meeting|pretty_json }}</pre>
+  </section>
+</section>
+{% endblock %}

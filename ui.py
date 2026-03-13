@@ -19,8 +19,9 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
 from collections import Counter
+from collections import OrderedDict
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
 import re
@@ -89,6 +90,8 @@ def inject_globals() -> dict[str, Any]:
         active_section = "people"
     elif path.startswith("/kaiki"):
         active_section = "kaiki"
+    elif path.startswith("/kaigiroku"):
+        active_section = "kaigiroku"
     elif path.startswith("/gian"):
         active_section = "gian"
     elif path.startswith("/seigan"):
@@ -125,6 +128,38 @@ def api_get(path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any
         return response.json()
     except ValueError as exc:
         raise ApiRequestError(f"API のレスポンスが JSON ではありません: {url}") from exc
+
+
+def group_attendance_by_section(attendance: list[dict[str, Any]], house: str | None = None) -> list[dict[str, Any]]:
+    """出席者を section ごとにまとめてテンプレートへ渡す。"""
+
+    grouped: OrderedDict[str, OrderedDict[tuple[str, str | None], list[str]]] = OrderedDict()
+    default_section = "出席委員" if house == "衆議院" else "出席者"
+    for item in attendance:
+        section = item.get("section") or default_section
+        role = item.get("role") or "出席者"
+        title = item.get("title")
+        grouped.setdefault(section, OrderedDict()).setdefault((role, title), []).append(item.get("name", ""))
+
+    result = []
+    for section, role_groups in grouped.items():
+        items = [
+            {
+                "role": role,
+                "title": title,
+                "names": names,
+                "count": len(names),
+            }
+            for (role, title), names in role_groups.items()
+        ]
+        result.append(
+            {
+                "section": section,
+                "items": items,
+                "count": sum(item["count"] for item in items),
+            }
+        )
+    return result
 
 
 def require_house(house: str) -> str:
@@ -213,12 +248,20 @@ def kaiki_index():
         return render_api_error(exc)
 
     available_gian_sessions = set(meta["available_gian_sessions"])
+    available_kaigiroku_sessions = set(meta.get("available_kaigiroku_sessions", []))
     available_seigan_sessions = {
         house: set(sessions) for house, sessions in meta["available_seigan_sessions"].items()
     }
     available_shitsumon_sessions = {
         house: set(sessions) for house, sessions in meta["available_shitsumon_sessions"].items()
     }
+    kaigiroku_counts: dict[int, int] = {}
+    for session in sorted(available_kaigiroku_sessions):
+        try:
+            dataset = api_get(f"/v1/kaigiroku/list/{session}")
+        except ApiRequestError:
+            continue
+        kaigiroku_counts[session] = len(dataset.get("items", []))
 
     session_cards = []
     for item in kaiki["items"]:
@@ -226,8 +269,10 @@ def kaiki_index():
         session_cards.append(
             {
                 **item,
+                "kaigiroku_count": kaigiroku_counts.get(session_number),
                 "links": {
                     "gian": session_number in available_gian_sessions,
+                    "kaigiroku": session_number in available_kaigiroku_sessions,
                     "seigan_shugiin": session_number in available_seigan_sessions.get("shugiin", set()),
                     "seigan_sangiin": session_number in available_seigan_sessions.get("sangiin", set()),
                     "shitsumon_shugiin": session_number in available_shitsumon_sessions.get("shugiin", set()),
@@ -289,6 +334,8 @@ def person_detail(person_key: str):
         gian_groups=group_relations_by_session(person["gian_relations"], "submitted_session"),
         seigan_groups=group_relations_by_session(person["seigan_relations"], "session_number"),
         shitsumon_groups=group_relations_by_session(person["shitsumon_relations"], "session_number"),
+        meeting_groups=group_relations_by_session(person.get("meeting_relations", []), "session"),
+        speaking_meeting_groups=group_relations_by_session(person.get("speaking_meeting_relations", []), "session"),
     )
 
 
@@ -344,6 +391,61 @@ def gian_detail(bill_id: str):
         return render_api_error(exc)
 
     return render_template("gian_detail.html", title=bill["title"], bill=bill)
+
+
+@app.get("/kaigiroku")
+def kaigiroku_index():
+    """会議録一覧ページを返す。"""
+
+    try:
+        session_index = api_get("/v1/kaigiroku/list")
+        sessions = session_index["sessions"]
+        requested_session = request.args.get("session", type=int)
+        default_session = sessions[-1] if sessions else 0
+        selected_session = requested_session if requested_session in sessions else default_session
+        dataset = api_get(f"/v1/kaigiroku/list/{selected_session}") if sessions else {"items": []}
+    except ApiRequestError as exc:
+        return render_api_error(exc)
+
+    sorted_items = sorted(
+        dataset.get("items", []),
+        key=lambda item: (
+            item.get("date") or "",
+            item.get("opening_time") or "",
+            item.get("issue_id") or "",
+        ),
+        reverse=True,
+    )
+    dataset["items"] = sorted_items
+    house_counts = Counter(item.get("name_of_house") or "不明" for item in sorted_items)
+    latest_date = sorted_items[0].get("date") if sorted_items else None
+    return render_template(
+        "kaigiroku_list.html",
+        title="会議録一覧",
+        sessions=sessions,
+        selected_session=selected_session,
+        dataset=dataset,
+        house_counts=house_counts,
+        item_count=len(sorted_items),
+        latest_date=latest_date,
+    )
+
+
+@app.get("/kaigiroku/<issue_id>")
+def kaigiroku_detail(issue_id: str):
+    """会議録詳細ページを返す。"""
+
+    try:
+        meeting = api_get(f"/v1/kaigiroku/detail/{issue_id}")
+    except ApiRequestError as exc:
+        return render_api_error(exc)
+
+    return render_template(
+        "kaigiroku_detail.html",
+        title=f"{meeting['name_of_meeting']} {meeting['issue']}",
+        meeting=meeting,
+        grouped_attendance=group_attendance_by_section(meeting.get("attendance", []), meeting.get("name_of_house")),
+    )
 
 
 @app.get("/seigan/<house>")

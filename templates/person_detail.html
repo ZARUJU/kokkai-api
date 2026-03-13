@@ -20,6 +20,12 @@
     <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-shitsumon" id="tab-button-shitsumon" data-tab-target="tab-shitsumon">
       質問主意書 <span class="badge">{{ person.shitsumon_relations|length }}</span>
     </button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-meetings" id="tab-button-meetings" data-tab-target="tab-meetings">
+      出席会議 <span class="badge">{{ person.meeting_relations|length }}</span>
+    </button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-speaking-meetings" id="tab-button-speaking-meetings" data-tab-target="tab-speaking-meetings">
+      発言会議 <span class="badge">{{ person.speaking_meeting_relations|length }}</span>
+    </button>
     <button class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-json" id="tab-button-json" data-tab-target="tab-json">
       JSON
     </button>
@@ -77,6 +83,51 @@
         <li>
           <a href="{{ url_for('shitsumon_detail', house=item.house, question_id=item.question_id) }}">{{ item.title }}</a>
           <div class="subtle">{{ item.question_id }} / {{ item.role|role_label }} / {{ house_labels[item.house] }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% else %}
+    <ul class="item-list compact">
+      <li>関連なし</li>
+    </ul>
+    {% endfor %}
+  </section>
+
+  <section class="tab-panel" id="tab-meetings" role="tabpanel" aria-labelledby="tab-button-meetings" hidden>
+    <h2>出席会議</h2>
+    {% for group in meeting_groups %}
+    <section class="session-group">
+      <h3>{% if group["session_number"] %}第{{ group["session_number"] }}回{% else %}回次不明{% endif %}</h3>
+      <ul class="item-list compact">
+        {% for item in group["items"] %}
+        <li>
+          <a href="{{ url_for('kaigiroku_detail', issue_id=item.issue_id) }}">{{ item.name_of_meeting }} {{ item.issue }}</a>
+          <div class="subtle">{{ item.date }} / {{ item.name_of_house }} / {{ item.role or "出席者" }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% else %}
+    <ul class="item-list compact">
+      <li>関連なし</li>
+    </ul>
+    {% endfor %}
+  </section>
+
+  <section class="tab-panel" id="tab-speaking-meetings" role="tabpanel" aria-labelledby="tab-button-speaking-meetings" hidden>
+    <h2>発言会議</h2>
+    {% for group in speaking_meeting_groups %}
+    <section class="session-group">
+      <h3>{% if group["session_number"] %}第{{ group["session_number"] }}回{% else %}回次不明{% endif %}</h3>
+      <ul class="item-list compact">
+        {% for item in group["items"] %}
+        <li>
+          <a href="{{ url_for('kaigiroku_detail', issue_id=item.issue_id) }}">{{ item.name_of_meeting }} {{ item.issue }}</a>
+          <div class="subtle">{{ item.date }} / {{ item.name_of_house }} / 発言 {{ item.speech_count }}件</div>
+          {% if item.speaker_role or item.speaker_position %}
+          <div class="subtle">{{ item.speaker_role or item.speaker_position }}</div>
+          {% endif %}
         </li>
         {% endfor %}
       </ul>

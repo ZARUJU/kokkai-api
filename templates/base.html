@@ -12,6 +12,7 @@
         <a class="brand" href="{{ url_for('index') }}">kokkai-api UI</a>
         <nav class="main-nav">
           <a class="tab-link {% if active_section == 'kaiki' %}is-active{% endif %}" href="{{ url_for('kaiki_index') }}">会期</a>
+          <a class="tab-link {% if active_section == 'kaigiroku' %}is-active{% endif %}" href="{{ url_for('kaigiroku_index') }}">会議録</a>
           <a class="tab-link {% if active_section == 'people' %}is-active{% endif %}" href="{{ url_for('people_index') }}">人物</a>
           <a class="tab-link {% if active_section == 'gian' %}is-active{% endif %}" href="{{ url_for('gian_index') }}">議案</a>
           <a class="tab-link {% if active_section == 'seigan' %}is-active{% endif %}" href="{{ url_for('seigan_index', house='shugiin') }}">請願</a>

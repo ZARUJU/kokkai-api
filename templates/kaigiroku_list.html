@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <p class="eyebrow">会議録</p>
+    <h1>会議録一覧</h1>
+    <p class="lead">第{{ selected_session }}回の会議録を開催日順で確認できます。案件紐付数や開会・散会時刻も一覧で見られます。</p>
+  </div>
+</section>
+
+<section class="card">
+  <form class="inline-form" method="get">
+    <label for="session">回次</label>
+    <select id="session" name="session">
+      {% for session in sessions %}
+      <option value="{{ session }}" {% if session == selected_session %}selected{% endif %}>{{ session }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">表示</button>
+  </form>
+  <p class="subtle">開催日降順で表示しています。</p>
+
+  <dl class="stats compact-stats">
+    <div><dt>件数</dt><dd>{{ item_count }}</dd></div>
+    <div><dt>最新開催日</dt><dd>{{ latest_date or "-" }}</dd></div>
+  </dl>
+
+  <div class="subtle inline-summary">
+    {% for house_name, count in house_counts.items() %}
+    <span class="summary-chip">{{ house_name }} {{ count }}件</span>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <div class="table-wrap">
+    <table class="data-table kaigiroku-table">
+      <thead>
+        <tr>
+          <th>開催日</th>
+          <th>院</th>
+          <th>会議</th>
+          <th>号</th>
+          <th>開会</th>
+          <th>散会</th>
+          <th>案件紐付</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in dataset["items"] %}
+        <tr>
+          <td class="cell-date">{{ item.date }}</td>
+          <td><span class="summary-chip">{{ item.name_of_house }}</span></td>
+          <td>
+            <a class="title-link" href="{{ url_for('kaigiroku_detail', issue_id=item.issue_id) }}">{{ item.name_of_meeting }}</a>
+            <div class="subtle">ID: {{ item.issue_id }}</div>
+          </td>
+          <td>{{ item.issue }}</td>
+          <td>{{ item.opening_time or "-" }}</td>
+          <td>{{ item.closing_time or "-" }}</td>
+          <td><strong>{{ item.matched_item_count }}</strong></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="table-empty">対象データがありません。</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

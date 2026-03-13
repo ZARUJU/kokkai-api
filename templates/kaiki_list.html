@@ -22,11 +22,17 @@
           <div><dt>召集日</dt><dd>{{ item.convocation_date or "-" }}</dd></div>
           <div><dt>閉会日</dt><dd>{{ item.closing_date or "-" }}</dd></div>
           <div><dt>閉会注記</dt><dd>{{ item.closing_note or "-" }}</dd></div>
+          <div><dt>会議数</dt><dd>{{ item.kaigiroku_count if item.kaigiroku_count is not none else "-" }}</dd></div>
           <div><dt>会期日数</dt><dd>{{ item.duration_days or "-" }}</dd></div>
           <div><dt>当初日数</dt><dd>{{ item.initial_duration_days or "-" }}</dd></div>
           <div><dt>延長日数</dt><dd>{{ item.extension_days or "-" }}</dd></div>
         </dl>
         <div class="link-cluster">
+          {% if item.links.kaigiroku %}
+          <a class="button-link" href="{{ url_for('kaigiroku_index', session=item.number) }}">会議録</a>
+          {% else %}
+          <span class="button-link is-disabled" aria-disabled="true">会議録</span>
+          {% endif %}
           {% if item.links.gian %}
           <a class="button-link" href="{{ url_for('gian_index', session=item.number) }}">議案一覧</a>
           {% else %}

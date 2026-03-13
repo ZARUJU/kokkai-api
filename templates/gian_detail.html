@@ -15,6 +15,7 @@
   <div class="tab-bar" role="tablist" aria-label="議案詳細表示">
     <button class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab-target="bill-basic-panel">基本情報</button>
     <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="bill-progress-panel">審議経過 <span class="badge">{{ bill.progress|length }}</span></button>
+    <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="bill-meetings-panel">会議録 <span class="badge">{{ bill.meetings|length }}</span></button>
     <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="bill-docs-panel">本文文書 <span class="badge">{{ bill.honbun_documents|length }}</span></button>
     <button class="tab-button" type="button" role="tab" aria-selected="false" data-tab-target="bill-json-panel">JSON</button>
   </div>
@@ -76,6 +77,24 @@
       </li>
       {% else %}
       <li>審議経過はありません。</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="tab-panel" id="bill-meetings-panel" hidden>
+    <h2>取り上げられた会議</h2>
+    <ul class="item-list compact">
+      {% for item in bill.meetings %}
+      <li>
+        <strong>{{ item.date }}</strong>
+        {{ item.name_of_house }} {{ item.name_of_meeting }} {{ item.issue }}
+        <div class="subtle">{{ item.agenda_text }}</div>
+        {% if item.issue_id %}
+        <a href="{{ url_for('kaigiroku_detail', issue_id=item.issue_id) }}">会議録を見る</a>
+        {% endif %}
+      </li>
+      {% else %}
+      <li>会議録への紐付けはありません。</li>
       {% endfor %}
     </ul>
   </section>

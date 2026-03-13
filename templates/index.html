@@ -12,9 +12,22 @@
   <article class="card">
     <h2>データ件数</h2>
     <dl class="stats">
-      <div><dt>議案個票</dt><dd>{{ meta.available_bill_count }}</dd></div>
-      <div><dt>請願個票</dt><dd>{{ meta.available_petition_count }}</dd></div>
-      <div><dt>人物</dt><dd>{{ meta.available_people_count }}</dd></div>
+      <div>
+        <dt>会議録個票</dt>
+        <dd>{{ meta.available_kaigiroku_count }}</dd>
+      </div>
+      <div>
+        <dt>議案個票</dt>
+        <dd>{{ meta.available_bill_count }}</dd>
+      </div>
+      <div>
+        <dt>請願個票</dt>
+        <dd>{{ meta.available_petition_count }}</dd>
+      </div>
+      <div>
+        <dt>人物</dt>
+        <dd>{{ meta.available_people_count }}</dd>
+      </div>
     </dl>
   </article>
   <article class="card">
@@ -32,9 +45,15 @@
     <a class="button-link" href="{{ url_for('kaiki_index') }}">回次一覧を見る</a>
   </article>
   <article class="card">
+    <h2>会議録</h2>
+    {% if meta.available_kaigiroku_sessions %}
+    <a class="button-link"
+      href="{{ url_for('kaigiroku_index', session=meta.available_kaigiroku_sessions[-1]) }}">一覧を見る</a>
+    {% endif %}
+  </article>
+  <article class="card">
     <h2>議案</h2>
     {% if meta.available_gian_sessions %}
-    <p>最新回次: {{ meta.available_gian_sessions[-1] }}</p>
     <a class="button-link" href="{{ url_for('gian_index', session=meta.available_gian_sessions[-1]) }}">一覧を見る</a>
     {% endif %}
   </article>
@@ -51,10 +70,6 @@
       <a class="button-link" href="{{ url_for('shitsumon_index', house='shugiin') }}">衆議院</a>
       <a class="button-link" href="{{ url_for('shitsumon_index', house='sangiin') }}">参議院</a>
     </div>
-  </article>
-  <article class="card">
-    <h2>メタ情報</h2>
-    <pre class="json-block">{{ meta|pretty_json }}</pre>
   </article>
 </section>
 {% endblock %}
