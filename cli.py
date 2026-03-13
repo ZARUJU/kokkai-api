@@ -60,6 +60,10 @@ from src.pipeline.shitsumon import parse_shugiin_shitsumon_detail, parse_shugiin
 
 DEFAULT_LATEST_COUNT = 2
 KAIKI_PATH = Path("data/kaiki.json")
+GIAN_LIST_JSON_DIR = Path("tmp/gian/list")
+KAIGIROKU_PARSED_DIR = Path("tmp/kaigiroku/parsed")
+SHUGIIN_SHITSUMON_LIST_HTML_DIR = Path("tmp/shitsumon/shugiin/list")
+SANGIIN_SHITSUMON_LIST_HTML_DIR = Path("tmp/shitsumon/sangiin/list")
 SHUGIIN_SEIGAN_LIST_HTML_DIR = Path("tmp/seigan/shugiin/list")
 SANGIIN_SEIGAN_LIST_HTML_DIR = Path("tmp/seigan/sangiin/list")
 logger = logging.getLogger(__name__)
@@ -139,6 +143,9 @@ def run_shugiin_shitsumon_pipeline(session: int, skip_existing: bool, parse_only
     """衆議院質問主意書パイプラインを1回次分実行する。"""
 
     logger.info("衆議院質問主意書処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if parse_only and not (SHUGIIN_SHITSUMON_LIST_HTML_DIR / f"{session}.html").exists():
+        logger.warning("衆議院質問主意書一覧HTMLがないため parse-only をスキップ: session=%s", session)
+        return
     if not parse_only:
         get_shugiin_shitsumon_list.process_session(session, skip_existing=skip_existing)
     parse_shugiin_shitsumon_list.process_session(session)
@@ -196,8 +203,17 @@ def run_sangiin_shitsumon_pipeline(session: int, skip_existing: bool, parse_only
     """参議院質問主意書パイプラインを1回次分実行する。"""
 
     logger.info("参議院質問主意書処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
+    if parse_only and not (SANGIIN_SHITSUMON_LIST_HTML_DIR / f"{session}.html").exists():
+        logger.warning("参議院質問主意書一覧HTMLがないため parse-only をスキップ: session=%s", session)
+        return
     if not parse_only:
-        get_sangiin_shitsumon_list.process_session(session, skip_existing=skip_existing)
+        try:
+            get_sangiin_shitsumon_list.process_session(session, skip_existing=skip_existing)
+        except requests.HTTPError as exc:
+            if is_http_not_found(exc):
+                logger.warning("参議院質問主意書一覧が未公開のためスキップ: session=%s", session)
+                return
+            raise
     parse_sangiin_shitsumon_list.process_session(session)
     if not parse_only:
         get_sangiin_shitsumon_detail.process_session(session, skip_existing=skip_existing)
@@ -220,12 +236,39 @@ def run_distribution_builders(sessions: list[int]) -> None:
 
     normalized_sessions = sorted(set(sessions))
     logger.info("配布データ生成開始: sessions=%s", normalized_sessions)
-    build_gian_distribution.process_sessions(normalized_sessions)
-    build_kaigiroku_distribution.process_sessions(normalized_sessions)
+
+    gian_sessions = [session for session in normalized_sessions if (GIAN_LIST_JSON_DIR / f"{session}.json").exists()]
+    if gian_sessions:
+        build_gian_distribution.process_sessions(gian_sessions)
+    else:
+        logger.warning("議案の配布データ生成対象がないためスキップ: sessions=%s", normalized_sessions)
+
+    kaigiroku_sessions = [session for session in normalized_sessions if (KAIGIROKU_PARSED_DIR / f"{session}.json").exists()]
+    if kaigiroku_sessions:
+        build_kaigiroku_distribution.process_sessions(kaigiroku_sessions)
+    else:
+        logger.warning("会議録の配布データ生成対象がないためスキップ: sessions=%s", normalized_sessions)
+
     for house in build_seigan_distribution.HOUSE_CHOICES:
-        build_seigan_distribution.process_house_sessions(house=house, sessions=normalized_sessions)
+        house_sessions = [
+            session
+            for session in normalized_sessions
+            if (Path("tmp/seigan") / house / "list" / f"{session}.json").exists()
+        ]
+        if not house_sessions:
+            logger.warning("請願の配布データ生成対象がないためスキップ: house=%s sessions=%s", house, normalized_sessions)
+            continue
+        build_seigan_distribution.process_house_sessions(house=house, sessions=house_sessions)
     for house in build_shitsumon_distribution.HOUSE_CHOICES:
-        build_shitsumon_distribution.process_house_sessions(house=house, sessions=normalized_sessions)
+        house_sessions = [
+            session
+            for session in normalized_sessions
+            if (Path("tmp/shitsumon") / house / "list" / f"{session}.json").exists()
+        ]
+        if not house_sessions:
+            logger.warning("質問主意書の配布データ生成対象がないためスキップ: house=%s sessions=%s", house, normalized_sessions)
+            continue
+        build_shitsumon_distribution.process_house_sessions(house=house, sessions=house_sessions)
     build_people_index.process()
     logger.info("配布データ生成完了: sessions=%s", normalized_sessions)
 
