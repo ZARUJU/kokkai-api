@@ -225,24 +225,24 @@ def list_available_gian_sessions() -> list[int]:
     """配布済み議案一覧の回次一覧を返す。"""
 
     sessions: list[int] = []
-    for path in sorted(GIAN_LIST_DIR.glob("*.json")):
+    for path in GIAN_LIST_DIR.glob("*.json"):
         try:
             sessions.append(int(path.stem))
         except ValueError:
             continue
-    return sessions
+    return sorted(sessions)
 
 
 def list_available_kaigiroku_sessions() -> list[int]:
     """配布済み会議録一覧の回次一覧を返す。"""
 
     sessions: list[int] = []
-    for path in sorted((KAIGIROKU_ROOT / "list").glob("*.json")):
+    for path in (KAIGIROKU_ROOT / "list").glob("*.json"):
         try:
             sessions.append(int(path.stem))
         except ValueError:
             continue
-    return sessions
+    return sorted(sessions)
 
 
 def list_available_bill_ids() -> list[str]:
@@ -261,12 +261,12 @@ def list_available_seigan_sessions(house: House) -> list[int]:
     """指定院の請願一覧回次を返す。"""
 
     sessions: list[int] = []
-    for path in sorted((SEIGAN_ROOT / house.value / "list").glob("*.json")):
+    for path in (SEIGAN_ROOT / house.value / "list").glob("*.json"):
         try:
             sessions.append(int(path.stem))
         except ValueError:
             continue
-    return sessions
+    return sorted(sessions)
 
 
 def list_available_petition_ids(house: House) -> list[str]:
@@ -279,12 +279,12 @@ def list_available_shitsumon_sessions(house: House) -> list[int]:
     """指定院の質問主意書一覧回次を返す。"""
 
     sessions: list[int] = []
-    for path in sorted((SHITSUMON_ROOT / house.value / "list").glob("*.json")):
+    for path in (SHITSUMON_ROOT / house.value / "list").glob("*.json"):
         try:
             sessions.append(int(path.stem))
         except ValueError:
             continue
-    return sessions
+    return sorted(sessions)
 
 
 def list_available_question_ids(house: House) -> list[str]:
