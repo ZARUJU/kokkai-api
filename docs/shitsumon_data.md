@@ -112,6 +112,8 @@
   `data/shitsumon/{house}/list/{session}.json`
   `data/shitsumon/{house}/detail/{question_id}.json`
 
+`cli.py` から `--force` なしで実行する場合は、`data/shitsumon/{house}/list/{session}.json` が既にあれば、その院・回次の質問主意書取得・パース・配布生成をスキップする。
+
 ## 4. 中間データと配布データの役割
 
 - `tmp/shitsumon/{house}/list/{session}.html`

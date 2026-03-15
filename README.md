@@ -64,6 +64,19 @@ uv sync
 - `--parse-only`
   取得済みの raw HTML / 中間 JSON だけを使って、パースと `data/` 再生成だけを行う
 
+`--force` なしで回次を指定した場合や `--all` を使った場合は、各データ種別の配布用一覧 JSON が既にあれば、その回次の取得・再パース・再配布をスキップします。判定に使う主なファイルは以下です。
+
+- 議案
+  `data/gian/list/{session}.json`
+- 会議録
+  `data/kaigiroku/list/{session}.json`
+- 請願
+  `data/seigan/{house}/list/{session}.json`
+- 質問主意書
+  `data/shitsumon/{house}/list/{session}.json`
+
+`--parse-only` はこの配布済み判定を使わず、`tmp/` にある raw / 中間データを前提に再パースと `data/` 再生成を行います。
+
 実行例:
 
 ```bash

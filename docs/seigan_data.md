@@ -110,6 +110,8 @@
   `data/seigan/{house}/list/{session}.json`
   `data/seigan/{house}/detail/{petition_id}.json`
 
+`cli.py` から `--force` なしで実行する場合は、`data/seigan/{house}/list/{session}.json` が既にあれば、その院・回次の請願取得・パース・配布生成をスキップする。
+
 ## 4. 中間データと配布データの役割
 
 - `tmp/seigan/{house}/list/{session}.html`

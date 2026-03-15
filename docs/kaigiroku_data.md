@@ -62,6 +62,8 @@
   `data/kaigiroku/list/{session}.json`
   `data/kaigiroku/detail/{issue_id}.json`
 
+`cli.py` から `--force` なしで実行する場合は、`data/kaigiroku/list/{session}.json` が既にあれば、その回次の会議録取得・パース・配布生成をスキップする。
+
 ## 4. 中間データと配布データの役割
 
 - `tmp/kaigiroku/meeting/{session}.json`

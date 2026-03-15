@@ -127,6 +127,8 @@
   `data/gian/list/{session}.json`
   `data/gian/detail/{bill_id}.json`
 
+`cli.py` から `--force` なしで実行する場合は、`data/gian/list/{session}.json` が既にあれば、その回次の議案取得・パース・配布生成をスキップする。
+
 ## 4. 中間データと配布データの役割
 
 - `tmp/gian/list/{session}.html`

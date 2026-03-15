@@ -35,6 +35,8 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+from pydantic import ValidationError
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -274,7 +276,15 @@ def process() -> Path:
 
     if KAIGIROKU_MEETING_DIR.exists():
         for path in sorted(KAIGIROKU_MEETING_DIR.glob("*.json")):
-            dataset = KokkaiMeetingApiDataset.model_validate_json(path.read_text(encoding="utf-8"))
+            text = path.read_text(encoding="utf-8").strip()
+            if not text:
+                logger.warning("会議録raw JSONが空のため人物索引生成ではスキップ: path=%s", path)
+                continue
+            try:
+                dataset = KokkaiMeetingApiDataset.model_validate_json(text)
+            except ValidationError as exc:
+                logger.warning("会議録raw JSONの読込に失敗したため人物索引生成ではスキップ: path=%s error=%s", path, exc)
+                continue
             for meeting in dataset.items:
                 per_person: dict[str, DistributedPersonSpeakingMeetingRelation] = {}
                 for speech in meeting.speech_record:
