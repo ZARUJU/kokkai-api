@@ -8,6 +8,7 @@
 
 - 配布データ
   `data/people/index.json`
+  `data/people/detail/*.json`
 
 ## 2. 入力元
 
@@ -62,6 +63,7 @@
 
 - 出力
   `data/people/index.json`
+  `data/people/detail/*.json`
 
 ## 4. 配布 JSON
 
@@ -69,6 +71,7 @@
 
 - パス
   `data/people/index.json`
+  `data/people/detail/*.json`
 
 ### 4.2 トップレベル
 
@@ -85,6 +88,26 @@
   代表表示名。現時点では `person_key` と同じ
 - `name_variants`
   配布元 JSON に現れた人物名表記の一覧
+- `detail_id`
+  正規化済み `person_key` から生成した人物個票ファイル用 ID
+- `relation_counts`
+  関連件数の要約
+
+## 5. 人物個票 JSON
+
+- パス
+  `data/people/detail/{detail_id}.json`
+
+- `built_at`
+  人物インデックスを生成した UTC 時刻
+- `person_key`
+  人物名の正規化キー
+- `canonical_name`
+  代表表示名。現時点では `person_key` と同じ
+- `name_variants`
+  配布元 JSON に現れた人物名表記の一覧
+- `relation_counts`
+  関連件数の要約
 - `gian_relations`
   議案との関係配列
 - `seigan_relations`
@@ -96,9 +119,9 @@
 - `speaking_meeting_relations`
   発言会議との関係配列
 
-## 5. 関係配列
+## 6. 関係配列
 
-### 5.1 `gian_relations[]`
+### 6.1 `gian_relations[]`
 
 - `bill_id`
   議案 ID
@@ -109,7 +132,7 @@
 - `submitted_session`
   議案提出回次
 
-### 5.2 `seigan_relations[]`
+### 6.2 `seigan_relations[]`
 
 - `petition_id`
   請願 ID
@@ -122,7 +145,7 @@
 - `session_number`
   回次
 
-### 5.3 `shitsumon_relations[]`
+### 6.3 `shitsumon_relations[]`
 
 - `question_id`
   質問主意書 ID
@@ -135,7 +158,7 @@
 - `session_number`
   質問主意書 ID から復元した回次
 
-### 5.4 `meeting_relations[]`
+### 6.4 `meeting_relations[]`
 
 - `issue_id`
   会議 ID
@@ -150,7 +173,7 @@
 - `role`
   出席上の役割
 
-### 5.5 `speaking_meeting_relations[]`
+### 6.5 `speaking_meeting_relations[]`
 
 - `issue_id`
   会議 ID
@@ -165,7 +188,7 @@
 - `speech_count`
   当該人物の発言回数
 
-## 6. 利用上の注意
+## 7. 利用上の注意
 
 - 人物の同一性判定はまだ厳密な名寄せを行っていない
 - `person_key` は外部公開用の永続 ID ではなく、配布用の正規化キーである

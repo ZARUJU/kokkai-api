@@ -13,10 +13,12 @@
 
 出力:
     - data/people/index.json
+    - data/people/detail/*.json
 
 主な内容:
     - 人物ごとの正規化キー
     - 表記ゆれ一覧
+    - 人物個票への参照
     - 議案との関係
     - 請願との関係
     - 質問主意書との関係
@@ -26,6 +28,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import sys
 from collections import defaultdict
@@ -39,12 +42,14 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.models import (
     DistributedGianDetailDataset,
     DistributedKokkaiMeetingDetailDataset,
-    DistributedPeopleDataset,
+    DistributedPeopleIndexDataset,
+    DistributedPersonDetailDataset,
     DistributedPersonGianRelation,
+    DistributedPersonIndexItem,
+    DistributedPersonRelationCounts,
     DistributedPersonMeetingRelation,
-    DistributedPersonSpeakingMeetingRelation,
-    DistributedPersonItem,
     DistributedPersonSeiganRelation,
+    DistributedPersonSpeakingMeetingRelation,
     DistributedPersonShitsumonRelation,
     DistributedSeiganDetailDataset,
     KokkaiMeetingApiDataset,
@@ -59,6 +64,7 @@ SHITSUMON_ROOT = Path("data/shitsumon")
 KAIGIROKU_DETAIL_DIR = Path("data/kaigiroku/detail")
 KAIGIROKU_MEETING_DIR = Path("tmp/kaigiroku/meeting")
 OUTPUT_PATH = Path("data/people/index.json")
+DETAIL_DIR = Path("data/people/detail")
 logger = logging.getLogger(__name__)
 
 
@@ -74,6 +80,12 @@ def save_json(path: Path, payload: dict) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def build_person_detail_id(person_key: str) -> str:
+    """人物キーから人物個票ファイル用の固定 ID を作る。"""
+
+    return hashlib.sha256(person_key.encode("utf-8")).hexdigest()
 
 
 def relation_sort_key(
@@ -294,7 +306,8 @@ def process() -> Path:
                 for person_key, relation in per_person.items():
                     speaking_meeting_relations[person_key].append(relation)
 
-    items: list[DistributedPersonItem] = []
+    built_at = datetime.now(timezone.utc)
+    items: list[DistributedPersonIndexItem] = []
     for person_key in sorted(name_variants):
         unique_gian_relations = {
             (relation.bill_id, relation.role): relation for relation in gian_relations.get(person_key, [])
@@ -314,21 +327,46 @@ def process() -> Path:
         unique_speaking_meeting_relations = {
             relation.issue_id: relation for relation in speaking_meeting_relations.get(person_key, [])
         }
+        sorted_gian_relations = sorted(unique_gian_relations.values(), key=relation_sort_key)
+        sorted_seigan_relations = sorted(unique_seigan_relations.values(), key=relation_sort_key)
+        sorted_shitsumon_relations = sorted(unique_shitsumon_relations.values(), key=relation_sort_key)
+        sorted_meeting_relations = sorted(unique_meeting_relations.values(), key=relation_sort_key)
+        sorted_speaking_meeting_relations = sorted(unique_speaking_meeting_relations.values(), key=relation_sort_key)
+        sorted_name_variants = sorted(name_variants[person_key])
+        detail_id = build_person_detail_id(person_key)
+        detail_path = DETAIL_DIR / f"{detail_id}.json"
+        relation_counts = DistributedPersonRelationCounts(
+            gian=len(sorted_gian_relations),
+            seigan=len(sorted_seigan_relations),
+            shitsumon=len(sorted_shitsumon_relations),
+            meeting_attendance=len(sorted_meeting_relations),
+            meeting_speech=len(sorted_speaking_meeting_relations),
+        )
+        detail_dataset = DistributedPersonDetailDataset(
+            built_at=built_at,
+            person_key=person_key,
+            canonical_name=person_key,
+            name_variants=sorted_name_variants,
+            relation_counts=relation_counts,
+            gian_relations=sorted_gian_relations,
+            seigan_relations=sorted_seigan_relations,
+            shitsumon_relations=sorted_shitsumon_relations,
+            meeting_relations=sorted_meeting_relations,
+            speaking_meeting_relations=sorted_speaking_meeting_relations,
+        )
+        save_json(detail_path, detail_dataset.model_dump(mode="json"))
         items.append(
-            DistributedPersonItem(
+            DistributedPersonIndexItem(
                 person_key=person_key,
                 canonical_name=person_key,
-                name_variants=sorted(name_variants[person_key]),
-                gian_relations=sorted(unique_gian_relations.values(), key=relation_sort_key),
-                seigan_relations=sorted(unique_seigan_relations.values(), key=relation_sort_key),
-                shitsumon_relations=sorted(unique_shitsumon_relations.values(), key=relation_sort_key),
-                meeting_relations=sorted(unique_meeting_relations.values(), key=relation_sort_key),
-                speaking_meeting_relations=sorted(unique_speaking_meeting_relations.values(), key=relation_sort_key),
+                name_variants=sorted_name_variants,
+                detail_id=detail_id,
+                relation_counts=relation_counts,
             )
         )
 
-    dataset = DistributedPeopleDataset(
-        built_at=datetime.now(timezone.utc),
+    dataset = DistributedPeopleIndexDataset(
+        built_at=built_at,
         items=items,
     )
     output_path = save_json(OUTPUT_PATH, dataset.model_dump(mode="json"))

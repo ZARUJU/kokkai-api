@@ -35,6 +35,7 @@
     - data/shitsumon/{house}/list/*.json
     - data/shitsumon/{house}/detail/*.json
     - data/people/index.json
+    - data/people/detail/*.json
 
 実行例:
     uv run api.py
@@ -61,8 +62,9 @@ from src.models import (
     DistributedGianListDataset,
     DistributedKokkaiMeetingDetailDataset,
     DistributedKokkaiMeetingListDataset,
-    DistributedPeopleDataset,
-    DistributedPersonItem,
+    DistributedPeopleIndexDataset,
+    DistributedPersonDetailDataset,
+    DistributedPersonIndexItem,
     DistributedSeiganDetailDataset,
     DistributedSeiganListDataset,
     KaikiDataset,
@@ -81,7 +83,7 @@ GIAN_LIST_DIR = DATA_ROOT / "gian" / "list"
 GIAN_DETAIL_DIR = DATA_ROOT / "gian" / "detail"
 SEIGAN_ROOT = DATA_ROOT / "seigan"
 SHITSUMON_ROOT = DATA_ROOT / "shitsumon"
-PEOPLE_PATH = DATA_ROOT / "people" / "index.json"
+PEOPLE_INDEX_PATH = DATA_ROOT / "people" / "index.json"
 
 
 class House(str, Enum):
@@ -205,10 +207,18 @@ def load_shitsumon_detail(
 
 
 @lru_cache(maxsize=1)
-def load_people() -> DistributedPeopleDataset:
+def load_people_index() -> DistributedPeopleIndexDataset:
     """人物インデックスを読み込む。"""
 
-    return DistributedPeopleDataset.model_validate_json(_read_json(PEOPLE_PATH))
+    return DistributedPeopleIndexDataset.model_validate_json(_read_json(PEOPLE_INDEX_PATH))
+
+
+@lru_cache(maxsize=4096)
+def load_person_detail(detail_id: str) -> DistributedPersonDetailDataset:
+    """人物個票を読み込む。"""
+
+    detail_path = DATA_ROOT / "people" / "detail" / f"{detail_id}.json"
+    return DistributedPersonDetailDataset.model_validate_json(_read_json(detail_path))
 
 
 def list_available_gian_sessions() -> list[int]:
@@ -286,28 +296,35 @@ def list_available_question_ids(house: House) -> list[str]:
 def list_available_person_keys() -> list[str]:
     """人物キー一覧を返す。"""
 
-    return [item.person_key for item in load_people().items]
+    return [item.person_key for item in load_people_index().items]
 
 
-def find_person(person_key: str) -> DistributedPersonItem:
-    """人物キーに一致する人物項目を返す。"""
+def find_person_index_item(person_key: str) -> DistributedPersonIndexItem:
+    """人物キーに一致する人物インデックス項目を返す。"""
 
     decoded_key = unquote(person_key)
-    for item in load_people().items:
+    for item in load_people_index().items:
         if item.person_key == decoded_key:
             return item
     raise HTTPException(status_code=404, detail=f"person not found: {decoded_key}")
 
 
-def search_people(query: str) -> list[DistributedPersonItem]:
+def find_person(person_key: str) -> DistributedPersonDetailDataset:
+    """人物キーに一致する人物項目を返す。"""
+
+    item = find_person_index_item(person_key)
+    return load_person_detail(item.detail_id)
+
+
+def search_people(query: str) -> list[DistributedPersonIndexItem]:
     """人物キーと表記ゆれに対して部分一致検索する。"""
 
     normalized_query = query.strip()
     if not normalized_query:
         return []
 
-    matches: list[tuple[int, DistributedPersonItem]] = []
-    for item in load_people().items:
+    matches: list[tuple[int, DistributedPersonIndexItem]] = []
+    for item in load_people_index().items:
         haystacks = [item.person_key, item.canonical_name, *item.name_variants]
         if any(normalized_query in value for value in haystacks):
             score = 0 if item.person_key == normalized_query else 1
@@ -319,7 +336,7 @@ def search_people(query: str) -> list[DistributedPersonItem]:
 def build_meta() -> ApiMetaResponse:
     """API と配布データのメタ情報を返す。"""
 
-    people_dataset = load_people()
+    people_dataset = load_people_index()
     datasets_built_at = {
         "kaiki": load_kaiki().fetched_at,
         "people": people_dataset.built_at,
@@ -569,8 +586,8 @@ def read_people_search(
     )
 
 
-@router.get("/people/{person_key}", response_model=DistributedPersonItem)
-def read_person(person_key: str) -> DistributedPersonItem:
+@router.get("/people/{person_key}", response_model=DistributedPersonDetailDataset)
+def read_person(person_key: str) -> DistributedPersonDetailDataset:
     """指定人物のインデックス個票を返す。"""
 
     return find_person(person_key)

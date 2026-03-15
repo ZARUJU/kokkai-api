@@ -625,6 +625,7 @@ uv run python src/pipeline/shitsumon/build_shitsumon_distribution.py --house all
   なし
 - 出力
   `data/people/index.json`
+  `data/people/detail/*.json`
 
 実行例:
 

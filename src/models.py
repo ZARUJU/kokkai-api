@@ -587,13 +587,54 @@ class DistributedPersonItem(BaseModel):
     speaking_meeting_relations: list[DistributedPersonSpeakingMeetingRelation] = []
 
 
-class DistributedPeopleDataset(BaseModel):
+class DistributedPersonRelationCounts(BaseModel):
+    """人物に紐づく関連件数の要約を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    gian: int = 0
+    seigan: int = 0
+    shitsumon: int = 0
+    meeting_attendance: int = 0
+    meeting_speech: int = 0
+
+
+class DistributedPersonIndexItem(BaseModel):
+    """人物一覧・検索用の軽量項目を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    person_key: str
+    canonical_name: str
+    name_variants: list[str] = []
+    detail_id: str
+    relation_counts: DistributedPersonRelationCounts
+
+
+class DistributedPeopleIndexDataset(BaseModel):
     """配布用の人物インデックス全体を表すモデル。"""
 
     model_config = ConfigDict(extra="forbid")
 
     built_at: datetime
-    items: list[DistributedPersonItem]
+    items: list[DistributedPersonIndexItem]
+
+
+class DistributedPersonDetailDataset(BaseModel):
+    """配布用の人物個票を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    built_at: datetime
+    person_key: str
+    canonical_name: str
+    name_variants: list[str] = []
+    relation_counts: DistributedPersonRelationCounts
+    gian_relations: list[DistributedPersonGianRelation] = []
+    seigan_relations: list[DistributedPersonSeiganRelation] = []
+    shitsumon_relations: list[DistributedPersonShitsumonRelation] = []
+    meeting_relations: list[DistributedPersonMeetingRelation] = []
+    speaking_meeting_relations: list[DistributedPersonSpeakingMeetingRelation] = []
 
 
 class DistributedSeiganListDataset(BaseModel):
@@ -879,4 +920,4 @@ class ApiPeopleSearchResponse(BaseModel):
     total: int
     offset: int
     limit: int
-    items: list[DistributedPersonItem]
+    items: list[DistributedPersonIndexItem]
