@@ -25,7 +25,7 @@ import json
 import logging
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -56,6 +56,9 @@ logger = logging.getLogger(__name__)
 SEPARATOR_CHARS = {"―", "－", "-", "─", "—", "◇", "…", "･", "・", " ", "\t"}
 ROLE_HEADER_LABELS = {"理事", "委員", "委員長", "事務局側", "政府参考人", "政府特別補佐人", "大臣政務官"}
 ATTENDANCE_SECTION_LABELS = {
+    "委員外の出席者",
+    "委員以外の出席者",
+    "委員外出席者",
     "国務大臣",
     "副大臣",
     "大臣政務官",
@@ -190,6 +193,67 @@ def has_upcoming_referred_marker(lines: list[str], start_index: int) -> bool:
         if "開議" in line or "開会" in line or line == "委員の異動" or line.endswith("本日の会議に付した案件"):
             return False
     return False
+
+
+def is_relative_change_date_line(line: str) -> bool:
+    """`同日` や `同月八日` のような委員異動日付行かを判定する。"""
+
+    return re.fullmatch(r"同日|同月\s*[〇零一二三四五六七八九十\d]+\s*日", line) is not None
+
+
+def has_upcoming_membership_change_marker(lines: list[str], start_index: int) -> bool:
+    """以降の数行に委員異動の本文が続くかを返す。"""
+
+    window: list[str] = []
+    for line in lines[start_index + 1 : start_index + 8]:
+        if not line:
+            continue
+        normalized = line.replace(" ", "")
+        window.append(normalized)
+        combined = "".join(window)
+        if "辞任" in combined and ("補欠" in combined or "当選" in combined or "選任" in combined):
+            return True
+        if "開議" in normalized or "開会" in normalized or is_agenda_section_header(line):
+            return False
+    return False
+
+
+def parse_change_date_line(
+    line: str,
+    *,
+    meeting_date: date | None,
+    current_change_date: date | None,
+) -> date | None:
+    """委員異動欄の日付行を `date` に変換する。"""
+
+    if meeting_date is None:
+        return current_change_date
+
+    def parse_month_day_near_meeting(text: str) -> date | None:
+        candidates: list[date] = []
+        for year in (meeting_date.year, meeting_date.year - 1, meeting_date.year + 1):
+            try:
+                parsed = parse_japanese_date_with_default_year(text, year)
+            except ValueError:
+                continue
+            if parsed is not None:
+                candidates.append(parsed)
+        if not candidates:
+            return None
+        return min(candidates, key=lambda candidate: abs((candidate - meeting_date).days))
+
+    if is_month_day_line(line):
+        return parse_month_day_near_meeting(line) or current_change_date
+    if line == "同日":
+        return current_change_date or meeting_date
+
+    match = re.fullmatch(r"同月\s*([〇零一二三四五六七八九十\d]+)\s*日", line)
+    if match is None:
+        return current_change_date
+
+    day_text = match.group(1)
+    parsed = parse_month_day_near_meeting(f"{meeting_date.month}月{day_text}日")
+    return parsed or current_change_date
 
 
 def parse_closing_line(text: str) -> tuple[str | None, datetime.time | None]:
@@ -383,6 +447,25 @@ def parse_intro_metadata(text: str, house: str) -> KokkaiMeetingMetadataParsed:
             current_role = None
             pending_prefix = ""
             continue
+        if (
+            block == "attendance"
+            and (
+                (meeting_date is not None and is_month_day_line(line) and has_upcoming_membership_change_marker(lines, index))
+                or is_relative_change_date_line(line)
+                or ("辞任" in normalized_label and ("補欠" in normalized_label or "当選" in normalized_label or "選任" in normalized_label))
+            )
+        ):
+            block = "membership_changes"
+            current_section = None
+            current_role = None
+            pending_prefix = ""
+            if is_month_day_line(line) or is_relative_change_date_line(line):
+                change_date = parse_change_date_line(
+                    line,
+                    meeting_date=meeting_date,
+                    current_change_date=change_date,
+                )
+                continue
         if is_agenda_section_header(line):
             block = "agenda"
             current_section = None
@@ -420,8 +503,12 @@ def parse_intro_metadata(text: str, house: str) -> KokkaiMeetingMetadataParsed:
             continue
 
         if block == "membership_changes":
-            if meeting_date is not None and is_month_day_line(line):
-                change_date = parse_japanese_date_with_default_year(line, meeting_date.year)
+            if is_month_day_line(line) or is_relative_change_date_line(line):
+                change_date = parse_change_date_line(
+                    line,
+                    meeting_date=meeting_date,
+                    current_change_date=change_date,
+                )
                 continue
             if normalized_label.replace(" ", "") in {"辞任補欠選任", "辞任", "補欠選任"}:
                 continue

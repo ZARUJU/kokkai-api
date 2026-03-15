@@ -68,11 +68,28 @@ KAIGIROKU_MEETING_DIR = Path("tmp/kaigiroku/meeting")
 OUTPUT_PATH = Path("data/people/index.json")
 DETAIL_DIR = Path("data/people/detail")
 logger = logging.getLogger(__name__)
+NON_PERSON_NAME_PREFIXES = (
+    "その補欠として",
+    "補欠として",
+)
+
+
+def is_indexable_person_name(name: str) -> bool:
+    """人物索引へ載せるべき氏名かを判定する。"""
+
+    normalized = normalize_text(name)
+    if not normalized:
+        return False
+    if normalized.startswith(NON_PERSON_NAME_PREFIXES):
+        return False
+    return True
 
 
 def build_person_key(name: str) -> str:
     """人物名から配布用の正規化キーを作る。"""
 
+    if not is_indexable_person_name(name):
+        return ""
     return normalize_person_name(name)
 
 
