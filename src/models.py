@@ -768,6 +768,17 @@ class KokkaiMeetingMetadataParsed(BaseModel):
     closing_text: str | None = None
 
 
+class KokkaiMeetingSpeakerSummary(BaseModel):
+    """会議録1件に含まれる発言者ごとの集計を表すモデル。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    speech_count: int
+    speaker_role: str | None = None
+    speaker_position: str | None = None
+
+
 class KokkaiMeetingParsedItem(BaseModel):
     """会議録1件に対する抽出済みメタデータ付き個票を表すモデル。"""
 
@@ -783,6 +794,7 @@ class KokkaiMeetingParsedItem(BaseModel):
     meeting_url: AnyHttpUrl | None = None
     pdf_url: AnyHttpUrl | None = None
     speech_count: int
+    speakers: list[KokkaiMeetingSpeakerSummary] = []
     parsed: KokkaiMeetingMetadataParsed
 
 
@@ -865,6 +877,7 @@ class DistributedKokkaiMeetingDetailDataset(BaseModel):
     closing_line: str | None = None
     closing_time: dt.time | None = None
     speech_count: int
+    speakers: list[KokkaiMeetingSpeakerSummary] = []
     attendance: list[KokkaiAttendanceEntry] = []
     agenda_items: list[DistributedKokkaiAgendaItem] = []
     built_at: dt.datetime

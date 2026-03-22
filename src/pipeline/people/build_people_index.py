@@ -9,7 +9,6 @@
     - data/shitsumon/shugiin/detail/*.json
     - data/shitsumon/sangiin/detail/*.json
     - data/kaigiroku/detail/*.json
-    - tmp/kaigiroku/meeting/*.json
 
 出力:
     - data/people/index.json
@@ -35,8 +34,6 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pydantic import ValidationError
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -54,7 +51,6 @@ from src.models import (
     DistributedPersonSpeakingMeetingRelation,
     DistributedPersonShitsumonRelation,
     DistributedSeiganDetailDataset,
-    KokkaiMeetingApiDataset,
     SangiinShitsumonDetailDataset,
     ShugiinShitsumonDetailDataset,
 )
@@ -64,7 +60,6 @@ GIAN_DETAIL_DIR = Path("data/gian/detail")
 SEIGAN_ROOT = Path("data/seigan")
 SHITSUMON_ROOT = Path("data/shitsumon")
 KAIGIROKU_DETAIL_DIR = Path("data/kaigiroku/detail")
-KAIGIROKU_MEETING_DIR = Path("tmp/kaigiroku/meeting")
 OUTPUT_PATH = Path("data/people/index.json")
 DETAIL_DIR = Path("data/people/detail")
 logger = logging.getLogger(__name__)
@@ -290,48 +285,24 @@ def process() -> Path:
                         section=attendee.section,
                     )
                 )
-
-    if KAIGIROKU_MEETING_DIR.exists():
-        for path in sorted(KAIGIROKU_MEETING_DIR.glob("*.json")):
-            text = path.read_text(encoding="utf-8").strip()
-            if not text:
-                logger.warning("会議録raw JSONが空のため人物索引生成ではスキップ: path=%s", path)
-                continue
-            try:
-                dataset = KokkaiMeetingApiDataset.model_validate_json(text)
-            except ValidationError as exc:
-                logger.warning("会議録raw JSONの読込に失敗したため人物索引生成ではスキップ: path=%s error=%s", path, exc)
-                continue
-            for meeting in dataset.items:
-                per_person: dict[str, DistributedPersonSpeakingMeetingRelation] = {}
-                for speech in meeting.speech_record:
-                    if not speech.speaker or speech.speaker == "会議録情報":
-                        continue
-                    person_key = build_person_key(speech.speaker)
-                    if not person_key:
-                        continue
-                    name_variants[person_key].add(speech.speaker)
-                    if person_key not in per_person:
-                        per_person[person_key] = DistributedPersonSpeakingMeetingRelation(
-                            issue_id=meeting.issue_id,
-                            session=meeting.session,
-                            name_of_house=meeting.name_of_house,
-                            name_of_meeting=meeting.name_of_meeting,
-                            issue=meeting.issue,
-                            date=meeting.date,
-                            speech_count=0,
-                            speaker_role=speech.speaker_role,
-                            speaker_position=speech.speaker_position,
-                        )
-                    relation = per_person[person_key]
-                    relation.speech_count += 1
-                    if relation.speaker_role is None and speech.speaker_role:
-                        relation.speaker_role = speech.speaker_role
-                    if relation.speaker_position is None and speech.speaker_position:
-                        relation.speaker_position = speech.speaker_position
-
-                for person_key, relation in per_person.items():
-                    speaking_meeting_relations[person_key].append(relation)
+            for speaker in detail.speakers:
+                person_key = build_person_key(speaker.name)
+                if not person_key:
+                    continue
+                name_variants[person_key].add(speaker.name)
+                speaking_meeting_relations[person_key].append(
+                    DistributedPersonSpeakingMeetingRelation(
+                        issue_id=detail.issue_id,
+                        session=detail.session,
+                        name_of_house=detail.name_of_house,
+                        name_of_meeting=detail.name_of_meeting,
+                        issue=detail.issue,
+                        date=detail.date,
+                        speech_count=speaker.speech_count,
+                        speaker_role=speaker.speaker_role,
+                        speaker_position=speaker.speaker_position,
+                    )
+                )
 
     built_at = datetime.now(timezone.utc)
     items: list[DistributedPersonIndexItem] = []

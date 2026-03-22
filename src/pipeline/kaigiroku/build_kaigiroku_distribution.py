@@ -200,6 +200,7 @@ def process_sessions(sessions: list[int], input_root: Path = INPUT_ROOT, output_
                 closing_line=item.parsed.closing_line,
                 closing_time=item.parsed.closing_time,
                 speech_count=item.speech_count,
+                speakers=item.speakers,
                 attendance=item.parsed.attendance,
                 agenda_items=distributed_agenda_items,
                 built_at=built_at,

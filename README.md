@@ -53,7 +53,7 @@ uv sync
 
 ## 一括実行 CLI
 
-回次をまとめて処理する入口として `cli.py` を用意しています。
+回次をまとめて処理する入口として `cli.py` と `scripts/update-kokkai-data` を用意しています。
 
 - 引数なし
   会期一覧を更新した上で、最新2回分の会議録・議案・請願・質問主意書を強制更新しながら取得・整形・`data/` 生成まで実行
@@ -61,8 +61,12 @@ uv sync
   指定回次だけ処理。既定では取得済み raw データを再利用し、`--force` 指定時のみ再取得。`data/kaiki.json` がなくても実行可能
 - `--all`
   会期一覧をもとに、取得可能な全回次をまとめて処理
+- `--latest-count`
+  引数省略時に処理する最新回次数を指定
 - `--parse-only`
   取得済みの raw HTML / 中間 JSON だけを使って、パースと `data/` 再生成だけを行う
+- `--cleanup-tmp`
+  配布用データ生成に成功した回次について、対応する `tmp/` 中間生成物を削除する
 
 `--force` なしで回次を指定した場合や `--all` を使った場合は、各データ種別の配布用一覧 JSON が既にあれば、その回次の取得・再パース・再配布をスキップします。判定に使う主なファイルは以下です。
 
@@ -75,16 +79,17 @@ uv sync
 - 質問主意書
   `data/shitsumon/{house}/list/{session}.json`
 
-`--parse-only` はこの配布済み判定を使わず、`tmp/` にある raw / 中間データを前提に再パースと `data/` 再生成を行います。
+`--parse-only` はこの配布済み判定を使わず、`tmp/` にある raw / 中間データを前提に再パースと `data/` 再生成を行います。`--cleanup-tmp` を付けると、配布用 JSON 生成後にその回次の `tmp/` を掃除できます。
 
 実行例:
 
 ```bash
-uv run python cli.py
-uv run python cli.py 220 221
-uv run python cli.py --all
-uv run python cli.py 220 221 --force
-uv run python cli.py 217 --parse-only
+./scripts/update-kokkai-data
+./scripts/update-kokkai-data 220 221
+./scripts/update-kokkai-data --all
+./scripts/update-kokkai-data --latest-count 1 --cleanup-tmp
+./scripts/update-kokkai-data 220 221 --force --cleanup-tmp
+./scripts/update-kokkai-data 217 --parse-only
 ```
 
 ## パイプライン
@@ -143,7 +148,7 @@ uv run python src/pipeline/kaigiroku/parse_meeting_records.py 221
 
 ### `build_kaigiroku_distribution.py`
 
-保存済みの会議録パース結果から、配布用の一覧 JSON と個票 JSON を `data/kaigiroku/` に生成します。`tmp` に残す `intro_text` や `closing_text` のような解析補助情報、付託案件は配布しません。本日の案件は照合可否にかかわらず配布し、議案・請願と照合できたものには ID を付与します。
+保存済みの会議録パース結果から、配布用の一覧 JSON と個票 JSON を `data/kaigiroku/` に生成します。`tmp` に残す `intro_text` や `closing_text` のような解析補助情報、付託案件は配布しません。本日の案件は照合可否にかかわらず配布し、議案・請願と照合できたものには ID を付与します。人物インデックス再生成に必要な発言者集計は `data/kaigiroku/detail/{issue_id}.json` に含めます。
 
 - 入力
   `tmp/kaigiroku/parsed/{回次}.json`
@@ -632,8 +637,10 @@ uv run python src/pipeline/shitsumon/build_shitsumon_distribution.py --house all
 
 - 入力
   `data/gian/detail/*.json`
+  `data/seigan/{house}/detail/*.json`
   `data/shitsumon/shugiin/detail/*.json`
   `data/shitsumon/sangiin/detail/*.json`
+  `data/kaigiroku/detail/*.json`
 - 引数
   なし
 - 出力

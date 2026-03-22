@@ -38,6 +38,8 @@ from src.models import (
     KokkaiMeetingMetadataParsed,
     KokkaiMeetingParsedDataset,
     KokkaiMeetingParsedItem,
+    KokkaiMeetingRecord,
+    KokkaiMeetingSpeakerSummary,
     KokkaiMembershipChange,
 )
 from src.utils import (
@@ -575,7 +577,35 @@ def parse_intro_metadata(text: str, house: str) -> KokkaiMeetingMetadataParsed:
     )
 
 
-def build_parsed_item(item) -> KokkaiMeetingParsedItem:
+def build_speaker_summaries(item: KokkaiMeetingRecord) -> list[KokkaiMeetingSpeakerSummary]:
+    """会議録 API の発言配列から発言者ごとの集計を作る。"""
+
+    per_person: dict[str, KokkaiMeetingSpeakerSummary] = {}
+    for speech in item.speech_record:
+        if not speech.speaker or speech.speaker == "会議録情報":
+            continue
+        normalized_name = normalize_person_name(speech.speaker)
+        if not normalized_name:
+            continue
+        summary = per_person.get(normalized_name)
+        if summary is None:
+            summary = KokkaiMeetingSpeakerSummary(
+                name=speech.speaker,
+                speech_count=0,
+                speaker_role=speech.speaker_role,
+                speaker_position=speech.speaker_position,
+            )
+            per_person[normalized_name] = summary
+        summary.speech_count += 1
+        if summary.speaker_role is None and speech.speaker_role:
+            summary.speaker_role = speech.speaker_role
+        if summary.speaker_position is None and speech.speaker_position:
+            summary.speaker_position = speech.speaker_position
+
+    return sorted(per_person.values(), key=lambda summary: normalize_person_name(summary.name))
+
+
+def build_parsed_item(item: KokkaiMeetingRecord) -> KokkaiMeetingParsedItem:
     """raw 会議録1件から保存用アイテムを構築する。"""
 
     first_speech = item.speech_record[0] if item.speech_record else None
@@ -597,6 +627,7 @@ def build_parsed_item(item) -> KokkaiMeetingParsedItem:
         meeting_url=item.meeting_url,
         pdf_url=item.pdf_url,
         speech_count=len(item.speech_record),
+        speakers=build_speaker_summaries(item),
         parsed=parsed,
     )
 

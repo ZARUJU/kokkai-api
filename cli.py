@@ -1,40 +1,36 @@
-"""国会データの取得から配布用 JSON 生成までをまとめて実行する CLI。
+"""国会データの更新対象判定、取得、配布生成、後片付けをまとめて実行する CLI。
 
 引数:
-    - sessions: 対象の国会回次。省略時は会期一覧から最新2回分を選ぶ
+    - sessions: 対象の国会回次。省略時は会期一覧から最新回次を選ぶ
     - --all: 会期一覧にある全回次を対象にする
-    - --force: 取得済み raw データがあっても再取得する
+    - --latest-count: 引数省略時に処理する最新回次数
+    - --force: 取得済み raw データや配布データがあっても再取得・再生成する
     - --parse-only: 取得済み raw / 中間データだけを使って再パースと配布用 JSON 更新を行う
+    - --cleanup-tmp: 配布用データ生成後に不要な `tmp/` の中間生成物を削除する
 
 入力:
     - 衆議院 会期一覧ページ
     - 衆議院 議案一覧・進捗・本文ページ
     - 衆参両院 請願一覧・個別ページ
     - 衆参両院 質問主意書一覧・個別ページ
-    - 既存の `data/kaiki.json`（`--force` なしで存在する場合）
+    - 国会会議録検索システム API
+    - 既存の `data/` と `tmp/`
 
 出力:
     - `data/kaiki.json`
-    - `tmp/gian/**`
-    - `tmp/kaigiroku/**`
-    - `tmp/seigan/**`
-    - `tmp/shitsumon/**`
     - `data/gian/**`
     - `data/kaigiroku/**`
     - `data/seigan/**`
     - `data/shitsumon/**`
-    - `data/people/index.json`
-
-主な内容:
-    - 最新回次の自動判定
-    - 取得系パイプラインの `--skip-existing` 相当制御
-    - 議案・請願・質問主意書データの統合実行
+    - `data/people/**`
+    - 必要に応じて `tmp/**`
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import shutil
 from pathlib import Path
 from typing import Callable
 
@@ -61,17 +57,16 @@ from src.pipeline.shitsumon import parse_shugiin_shitsumon_detail, parse_shugiin
 
 DEFAULT_LATEST_COUNT = 2
 KAIKI_PATH = Path("data/kaiki.json")
-GIAN_LIST_JSON_DIR = Path("tmp/gian/list")
-KAIGIROKU_MEETING_DIR = Path("tmp/kaigiroku/meeting")
-KAIGIROKU_PARSED_DIR = Path("tmp/kaigiroku/parsed")
-GIAN_DISTRIBUTION_LIST_DIR = Path("data/gian/list")
-KAIGIROKU_DISTRIBUTION_LIST_DIR = Path("data/kaigiroku/list")
-SEIGAN_DISTRIBUTION_ROOT = Path("data/seigan")
-SHITSUMON_DISTRIBUTION_ROOT = Path("data/shitsumon")
-SHUGIIN_SHITSUMON_LIST_HTML_DIR = Path("tmp/shitsumon/shugiin/list")
-SANGIIN_SHITSUMON_LIST_HTML_DIR = Path("tmp/shitsumon/sangiin/list")
-SHUGIIN_SEIGAN_LIST_HTML_DIR = Path("tmp/seigan/shugiin/list")
-SANGIIN_SEIGAN_LIST_HTML_DIR = Path("tmp/seigan/sangiin/list")
+TMP_ROOT = Path("tmp")
+GIAN_TMP_ROOT = TMP_ROOT / "gian"
+KAIGIROKU_TMP_ROOT = TMP_ROOT / "kaigiroku"
+SEIGAN_TMP_ROOT = TMP_ROOT / "seigan"
+SHITSUMON_TMP_ROOT = TMP_ROOT / "shitsumon"
+DATA_ROOT = Path("data")
+GIAN_DATA_ROOT = DATA_ROOT / "gian"
+KAIGIROKU_DATA_ROOT = DATA_ROOT / "kaigiroku"
+SEIGAN_DATA_ROOT = DATA_ROOT / "seigan"
+SHITSUMON_DATA_ROOT = DATA_ROOT / "shitsumon"
 logger = logging.getLogger(__name__)
 
 PipelineRunner = Callable[[int, bool, bool], None]
@@ -80,22 +75,33 @@ PipelineRunner = Callable[[int, bool, bool], None]
 def parse_args() -> argparse.Namespace:
     """CLI 引数を解釈する。"""
 
-    parser = argparse.ArgumentParser(description="国会データ取得パイプラインを一括実行する")
-    parser.add_argument("sessions", nargs="*", type=int, help="対象の国会回次。省略時は最新2回分")
+    parser = argparse.ArgumentParser(description="国会データ更新パイプラインを一括実行する")
+    parser.add_argument("sessions", nargs="*", type=int, help="対象の国会回次。省略時は最新回次を対象にする")
     parser.add_argument(
         "--all",
         action="store_true",
         help="会期一覧にある全回次を対象にする",
     )
     parser.add_argument(
+        "--latest-count",
+        type=int,
+        default=DEFAULT_LATEST_COUNT,
+        help="引数省略時に処理する最新回次数。既定値は 2",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
-        help="取得済み raw データがあっても再取得する。引数なし時は自動で有効",
+        help="取得済み raw データや配布データがあっても再取得・再生成する",
     )
     parser.add_argument(
         "--parse-only",
         action="store_true",
         help="取得済み raw / 中間データから再パースと配布用 JSON 更新のみを行う",
+    )
+    parser.add_argument(
+        "--cleanup-tmp",
+        action="store_true",
+        help="配布用データ生成後に、対象回次の `tmp/` 中間生成物を削除する",
     )
     return parser.parse_args()
 
@@ -116,19 +122,18 @@ def load_or_fetch_kaiki(force: bool) -> KaikiDataset:
 
 
 def select_sessions(args: argparse.Namespace, kaiki_dataset: KaikiDataset) -> tuple[list[int], bool]:
-    """対象回次と取得の強制更新有無を決める。"""
+    """対象回次と強制更新有無を決める。"""
 
     if args.sessions:
-        sessions = list(dict.fromkeys(args.sessions))
-        force = args.force
-        return sessions, force
+        return list(dict.fromkeys(args.sessions)), args.force
 
     if args.all:
-        all_sessions = sorted({item.number for item in kaiki_dataset.items}, reverse=True)
-        return all_sessions, args.force
+        sessions = sorted({item.number for item in kaiki_dataset.items}, reverse=True)
+        return sessions, args.force
 
-    latest_sessions = sorted({item.number for item in kaiki_dataset.items}, reverse=True)[:DEFAULT_LATEST_COUNT]
-    return latest_sessions, True
+    latest_count = max(1, args.latest_count)
+    sessions = sorted({item.number for item in kaiki_dataset.items}, reverse=True)[:latest_count]
+    return sessions, True
 
 
 def is_http_not_found(error: requests.HTTPError) -> bool:
@@ -138,35 +143,41 @@ def is_http_not_found(error: requests.HTTPError) -> bool:
     return response is not None and response.status_code == 404
 
 
-def has_gian_distribution(session: int) -> bool:
-    """指定回次の議案配布用一覧 JSON があるかを返す。"""
+def distribution_path(dataset_name: str, session: int, house: str | None = None) -> Path:
+    """データ種別ごとの配布用一覧 JSON パスを返す。"""
 
-    return (GIAN_DISTRIBUTION_LIST_DIR / f"{session}.json").exists()
+    if dataset_name == "gian":
+        return GIAN_DATA_ROOT / "list" / f"{session}.json"
+    if dataset_name == "kaigiroku":
+        return KAIGIROKU_DATA_ROOT / "list" / f"{session}.json"
+    if dataset_name == "seigan":
+        if house is None:
+            raise ValueError("請願の配布パスには house が必要です。")
+        return SEIGAN_DATA_ROOT / house / "list" / f"{session}.json"
+    if dataset_name == "shitsumon":
+        if house is None:
+            raise ValueError("質問主意書の配布パスには house が必要です。")
+        return SHITSUMON_DATA_ROOT / house / "list" / f"{session}.json"
+    raise ValueError(f"未対応のデータ種別です: {dataset_name}")
 
 
-def has_kaigiroku_distribution(session: int) -> bool:
-    """指定回次の会議録配布用一覧 JSON があるかを返す。"""
+def has_distribution_output(dataset_name: str, session: int, house: str | None = None) -> bool:
+    """対象回次の配布用一覧 JSON が既にあるかを返す。"""
 
-    return (KAIGIROKU_DISTRIBUTION_LIST_DIR / f"{session}.json").exists()
-
-
-def has_seigan_distribution(house: str, session: int) -> bool:
-    """指定院・指定回次の請願配布用一覧 JSON があるかを返す。"""
-
-    return (SEIGAN_DISTRIBUTION_ROOT / house / "list" / f"{session}.json").exists()
+    return distribution_path(dataset_name, session=session, house=house).exists()
 
 
-def has_shitsumon_distribution(house: str, session: int) -> bool:
-    """指定院・指定回次の質問主意書配布用一覧 JSON があるかを返す。"""
+def should_skip_dataset(dataset_name: str, session: int, skip_existing: bool, parse_only: bool, house: str | None = None) -> bool:
+    """配布済みデータを基準に対象回次の更新を省略するか判定する。"""
 
-    return (SHITSUMON_DISTRIBUTION_ROOT / house / "list" / f"{session}.json").exists()
+    return skip_existing and not parse_only and has_distribution_output(dataset_name, session=session, house=house)
 
 
 def run_gian_pipeline(session: int, skip_existing: bool, parse_only: bool = False) -> None:
     """議案パイプラインを1回次分実行する。"""
 
     logger.info("議案処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
-    if skip_existing and not parse_only and has_gian_distribution(session):
+    if should_skip_dataset("gian", session=session, skip_existing=skip_existing, parse_only=parse_only):
         logger.info("議案処理スキップ: 配布用データが既に存在 session=%s", session)
         return
     if not parse_only:
@@ -185,10 +196,10 @@ def run_shugiin_shitsumon_pipeline(session: int, skip_existing: bool, parse_only
     """衆議院質問主意書パイプラインを1回次分実行する。"""
 
     logger.info("衆議院質問主意書処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
-    if skip_existing and not parse_only and has_shitsumon_distribution("shugiin", session):
+    if should_skip_dataset("shitsumon", session=session, house="shugiin", skip_existing=skip_existing, parse_only=parse_only):
         logger.info("衆議院質問主意書処理スキップ: 配布用データが既に存在 session=%s", session)
         return
-    if parse_only and not (SHUGIIN_SHITSUMON_LIST_HTML_DIR / f"{session}.html").exists():
+    if parse_only and not (SHITSUMON_TMP_ROOT / "shugiin" / "list" / f"{session}.html").exists():
         logger.warning("衆議院質問主意書一覧HTMLがないため parse-only をスキップ: session=%s", session)
         return
     if not parse_only:
@@ -204,10 +215,10 @@ def run_shugiin_seigan_pipeline(session: int, skip_existing: bool, parse_only: b
     """衆議院請願パイプラインを1回次分実行する。"""
 
     logger.info("衆議院請願処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
-    if skip_existing and not parse_only and has_seigan_distribution("shugiin", session):
+    if should_skip_dataset("seigan", session=session, house="shugiin", skip_existing=skip_existing, parse_only=parse_only):
         logger.info("衆議院請願処理スキップ: 配布用データが既に存在 session=%s", session)
         return
-    if parse_only and not (SHUGIIN_SEIGAN_LIST_HTML_DIR / f"{session}.html").exists():
+    if parse_only and not (SEIGAN_TMP_ROOT / "shugiin" / "list" / f"{session}.html").exists():
         logger.warning("衆議院請願一覧HTMLがないため parse-only をスキップ: session=%s", session)
         return
     if not parse_only:
@@ -229,10 +240,10 @@ def run_sangiin_seigan_pipeline(session: int, skip_existing: bool, parse_only: b
     """参議院請願パイプラインを1回次分実行する。"""
 
     logger.info("参議院請願処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
-    if skip_existing and not parse_only and has_seigan_distribution("sangiin", session):
+    if should_skip_dataset("seigan", session=session, house="sangiin", skip_existing=skip_existing, parse_only=parse_only):
         logger.info("参議院請願処理スキップ: 配布用データが既に存在 session=%s", session)
         return
-    if parse_only and not (SANGIIN_SEIGAN_LIST_HTML_DIR / f"{session}.html").exists():
+    if parse_only and not (SEIGAN_TMP_ROOT / "sangiin" / "list" / f"{session}.html").exists():
         logger.warning("参議院請願一覧HTMLがないため parse-only をスキップ: session=%s", session)
         return
     if not parse_only:
@@ -254,10 +265,10 @@ def run_sangiin_shitsumon_pipeline(session: int, skip_existing: bool, parse_only
     """参議院質問主意書パイプラインを1回次分実行する。"""
 
     logger.info("参議院質問主意書処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
-    if skip_existing and not parse_only and has_shitsumon_distribution("sangiin", session):
+    if should_skip_dataset("shitsumon", session=session, house="sangiin", skip_existing=skip_existing, parse_only=parse_only):
         logger.info("参議院質問主意書処理スキップ: 配布用データが既に存在 session=%s", session)
         return
-    if parse_only and not (SANGIIN_SHITSUMON_LIST_HTML_DIR / f"{session}.html").exists():
+    if parse_only and not (SHITSUMON_TMP_ROOT / "sangiin" / "list" / f"{session}.html").exists():
         logger.warning("参議院質問主意書一覧HTMLがないため parse-only をスキップ: session=%s", session)
         return
     if not parse_only:
@@ -279,10 +290,10 @@ def run_kaigiroku_pipeline(session: int, skip_existing: bool, parse_only: bool =
     """会議録 API パイプラインを1回次分実行する。"""
 
     logger.info("会議録処理開始: session=%s skip_existing=%s parse_only=%s", session, skip_existing, parse_only)
-    if skip_existing and not parse_only and has_kaigiroku_distribution(session):
+    if should_skip_dataset("kaigiroku", session=session, skip_existing=skip_existing, parse_only=parse_only):
         logger.info("会議録処理スキップ: 配布用データが既に存在 session=%s", session)
         return
-    if parse_only and not (KAIGIROKU_MEETING_DIR / f"{session}.json").exists():
+    if parse_only and not (KAIGIROKU_TMP_ROOT / "meeting" / f"{session}.json").exists():
         logger.warning("会議録raw JSONがないため parse-only をスキップ: session=%s", session)
         return
     if not parse_only:
@@ -300,7 +311,8 @@ def run_distribution_builders(sessions: list[int], skip_existing: bool = False) 
     gian_sessions = [
         session
         for session in normalized_sessions
-        if (GIAN_LIST_JSON_DIR / f"{session}.json").exists() and not (skip_existing and has_gian_distribution(session))
+        if (GIAN_TMP_ROOT / "list" / f"{session}.json").exists()
+        and not (skip_existing and has_distribution_output("gian", session=session))
     ]
     if gian_sessions:
         build_gian_distribution.process_sessions(gian_sessions)
@@ -310,7 +322,8 @@ def run_distribution_builders(sessions: list[int], skip_existing: bool = False) 
     kaigiroku_sessions = [
         session
         for session in normalized_sessions
-        if (KAIGIROKU_PARSED_DIR / f"{session}.json").exists() and not (skip_existing and has_kaigiroku_distribution(session))
+        if (KAIGIROKU_TMP_ROOT / "parsed" / f"{session}.json").exists()
+        and not (skip_existing and has_distribution_output("kaigiroku", session=session))
     ]
     if kaigiroku_sessions:
         build_kaigiroku_distribution.process_sessions(kaigiroku_sessions)
@@ -321,24 +334,26 @@ def run_distribution_builders(sessions: list[int], skip_existing: bool = False) 
         house_sessions = [
             session
             for session in normalized_sessions
-            if (Path("tmp/seigan") / house / "list" / f"{session}.json").exists()
-            and not (skip_existing and has_seigan_distribution(house, session))
+            if (SEIGAN_TMP_ROOT / house / "list" / f"{session}.json").exists()
+            and not (skip_existing and has_distribution_output("seigan", session=session, house=house))
         ]
         if not house_sessions:
             logger.warning("請願の配布データ生成対象がないためスキップ: house=%s sessions=%s", house, normalized_sessions)
             continue
         build_seigan_distribution.process_house_sessions(house=house, sessions=house_sessions)
+
     for house in build_shitsumon_distribution.HOUSE_CHOICES:
         house_sessions = [
             session
             for session in normalized_sessions
-            if (Path("tmp/shitsumon") / house / "list" / f"{session}.json").exists()
-            and not (skip_existing and has_shitsumon_distribution(house, session))
+            if (SHITSUMON_TMP_ROOT / house / "list" / f"{session}.json").exists()
+            and not (skip_existing and has_distribution_output("shitsumon", session=session, house=house))
         ]
         if not house_sessions:
             logger.warning("質問主意書の配布データ生成対象がないためスキップ: house=%s sessions=%s", house, normalized_sessions)
             continue
         build_shitsumon_distribution.process_house_sessions(house=house, sessions=house_sessions)
+
     build_people_index.process()
     logger.info("配布データ生成完了: sessions=%s", normalized_sessions)
 
@@ -358,6 +373,66 @@ def run_pipeline_with_error_logging(
         logger.exception("パイプライン失敗。処理を続行します: pipeline=%s session=%s", pipeline_name, session)
 
 
+def remove_file_if_exists(path: Path) -> None:
+    """存在するファイルだけを削除する。"""
+
+    if path.exists():
+        path.unlink()
+
+
+def remove_dir_if_exists(path: Path) -> None:
+    """存在するディレクトリだけを削除する。"""
+
+    if path.exists():
+        shutil.rmtree(path)
+
+
+def cleanup_gian_tmp(session: int) -> None:
+    """対象回次の議案中間生成物を削除する。"""
+
+    if not has_distribution_output("gian", session=session):
+        return
+    remove_file_if_exists(GIAN_TMP_ROOT / "list" / f"{session}.html")
+    remove_file_if_exists(GIAN_TMP_ROOT / "list" / f"{session}.json")
+    for detail_dir in sorted((GIAN_TMP_ROOT / "detail").glob(f"{session}-*")):
+        remove_dir_if_exists(detail_dir)
+
+
+def cleanup_kaigiroku_tmp(session: int) -> None:
+    """対象回次の会議録中間生成物を削除する。"""
+
+    if not has_distribution_output("kaigiroku", session=session):
+        return
+    remove_file_if_exists(KAIGIROKU_TMP_ROOT / "meeting" / f"{session}.json")
+    remove_file_if_exists(KAIGIROKU_TMP_ROOT / "parsed" / f"{session}.json")
+
+
+def cleanup_house_tmp(root: Path, dataset_name: str, house: str, session: int) -> None:
+    """請願・質問主意書の対象院・対象回次の中間生成物を削除する。"""
+
+    if not has_distribution_output(dataset_name, session=session, house=house):
+        return
+    remove_file_if_exists(root / house / "list" / f"{session}.html")
+    remove_file_if_exists(root / house / "list" / f"{session}.json")
+    for detail_dir in sorted((root / house / "detail").glob(f"*-{session}-*")):
+        remove_dir_if_exists(detail_dir)
+
+
+def cleanup_tmp_artifacts(sessions: list[int]) -> None:
+    """配布用データ生成済みの対象回次について `tmp/` を掃除する。"""
+
+    normalized_sessions = sorted(set(sessions))
+    logger.info("tmp 掃除開始: sessions=%s", normalized_sessions)
+    for session in normalized_sessions:
+        cleanup_gian_tmp(session)
+        cleanup_kaigiroku_tmp(session)
+        cleanup_house_tmp(SEIGAN_TMP_ROOT, "seigan", "shugiin", session)
+        cleanup_house_tmp(SEIGAN_TMP_ROOT, "seigan", "sangiin", session)
+        cleanup_house_tmp(SHITSUMON_TMP_ROOT, "shitsumon", "shugiin", session)
+        cleanup_house_tmp(SHITSUMON_TMP_ROOT, "shitsumon", "sangiin", session)
+    logger.info("tmp 掃除完了: sessions=%s", normalized_sessions)
+
+
 def main() -> None:
     """国会データ一括更新 CLI のエントリーポイント。"""
 
@@ -365,17 +440,27 @@ def main() -> None:
     args = parse_args()
     if args.sessions and args.all:
         raise SystemExit("`sessions` と `--all` は同時に指定できません。")
+    if args.latest_count < 1:
+        raise SystemExit("`--latest-count` には 1 以上を指定してください。")
+
     if args.sessions:
         sessions = list(dict.fromkeys(args.sessions))
         force = args.force
     else:
         kaiki_dataset = load_or_fetch_kaiki(force=not args.parse_only)
         sessions, force = select_sessions(args, kaiki_dataset)
+
     skip_existing = not force
     if args.parse_only:
         skip_existing = True
 
-    logger.info("対象回次: sessions=%s force=%s parse_only=%s", sessions, force, args.parse_only)
+    logger.info(
+        "対象回次: sessions=%s force=%s parse_only=%s cleanup_tmp=%s",
+        sessions,
+        force,
+        args.parse_only,
+        args.cleanup_tmp,
+    )
     for session in sessions:
         run_pipeline_with_error_logging(
             pipeline_name="gian",
@@ -421,6 +506,8 @@ def main() -> None:
         )
 
     run_distribution_builders(sessions, skip_existing=skip_existing)
+    if args.cleanup_tmp:
+        cleanup_tmp_artifacts(sessions)
 
 
 if __name__ == "__main__":
