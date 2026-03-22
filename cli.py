@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import logging
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
@@ -70,6 +71,24 @@ SHITSUMON_DATA_ROOT = DATA_ROOT / "shitsumon"
 logger = logging.getLogger(__name__)
 
 PipelineRunner = Callable[[int, bool, bool], None]
+
+
+@dataclass(frozen=True)
+class PipelineFailure:
+    """失敗したパイプラインを識別する情報。"""
+
+    pipeline_name: str
+    session: int
+
+
+PIPELINE_TO_DATASET: dict[str, tuple[str, str | None]] = {
+    "gian": ("gian", None),
+    "kaigiroku": ("kaigiroku", None),
+    "shugiin_seigan": ("seigan", "shugiin"),
+    "sangiin_seigan": ("seigan", "sangiin"),
+    "shugiin_shitsumon": ("shitsumon", "shugiin"),
+    "sangiin_shitsumon": ("shitsumon", "sangiin"),
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -302,16 +321,23 @@ def run_kaigiroku_pipeline(session: int, skip_existing: bool, parse_only: bool =
     logger.info("会議録処理完了: session=%s", session)
 
 
-def run_distribution_builders(sessions: list[int], skip_existing: bool = False) -> None:
+def run_distribution_builders(
+    sessions: list[int],
+    skip_existing: bool = False,
+    blocked_targets: set[tuple[str, int, str | None]] | None = None,
+    skip_people_index: bool = False,
+) -> None:
     """配布用データを更新する。"""
 
     normalized_sessions = sorted(set(sessions))
+    blocked_targets = blocked_targets or set()
     logger.info("配布データ生成開始: sessions=%s", normalized_sessions)
 
     gian_sessions = [
         session
         for session in normalized_sessions
         if (GIAN_TMP_ROOT / "list" / f"{session}.json").exists()
+        and ("gian", session, None) not in blocked_targets
         and not (skip_existing and has_distribution_output("gian", session=session))
     ]
     if gian_sessions:
@@ -323,6 +349,7 @@ def run_distribution_builders(sessions: list[int], skip_existing: bool = False) 
         session
         for session in normalized_sessions
         if (KAIGIROKU_TMP_ROOT / "parsed" / f"{session}.json").exists()
+        and ("kaigiroku", session, None) not in blocked_targets
         and not (skip_existing and has_distribution_output("kaigiroku", session=session))
     ]
     if kaigiroku_sessions:
@@ -335,6 +362,7 @@ def run_distribution_builders(sessions: list[int], skip_existing: bool = False) 
             session
             for session in normalized_sessions
             if (SEIGAN_TMP_ROOT / house / "list" / f"{session}.json").exists()
+            and ("seigan", session, house) not in blocked_targets
             and not (skip_existing and has_distribution_output("seigan", session=session, house=house))
         ]
         if not house_sessions:
@@ -347,6 +375,7 @@ def run_distribution_builders(sessions: list[int], skip_existing: bool = False) 
             session
             for session in normalized_sessions
             if (SHITSUMON_TMP_ROOT / house / "list" / f"{session}.json").exists()
+            and ("shitsumon", session, house) not in blocked_targets
             and not (skip_existing and has_distribution_output("shitsumon", session=session, house=house))
         ]
         if not house_sessions:
@@ -354,7 +383,10 @@ def run_distribution_builders(sessions: list[int], skip_existing: bool = False) 
             continue
         build_shitsumon_distribution.process_house_sessions(house=house, sessions=house_sessions)
 
-    build_people_index.process()
+    if skip_people_index:
+        logger.warning("上流パイプラインに失敗があるため人物索引生成をスキップします")
+    else:
+        build_people_index.process()
     logger.info("配布データ生成完了: sessions=%s", normalized_sessions)
 
 
@@ -364,13 +396,32 @@ def run_pipeline_with_error_logging(
     session: int,
     skip_existing: bool,
     parse_only: bool,
-) -> None:
+) -> PipelineFailure | None:
     """個別パイプライン失敗時にログを残して続行する。"""
 
     try:
         runner(session=session, skip_existing=skip_existing, parse_only=parse_only)
     except Exception:
         logger.exception("パイプライン失敗。処理を続行します: pipeline=%s session=%s", pipeline_name, session)
+        return PipelineFailure(pipeline_name=pipeline_name, session=session)
+    return None
+
+
+def build_blocked_targets(failures: list[PipelineFailure]) -> set[tuple[str, int, str | None]]:
+    """失敗したパイプラインに対応する配布生成対象を返す。"""
+
+    blocked_targets: set[tuple[str, int, str | None]] = set()
+    for failure in failures:
+        dataset_name, house = PIPELINE_TO_DATASET[failure.pipeline_name]
+        blocked_targets.add((dataset_name, failure.session, house))
+    return blocked_targets
+
+
+def format_failure_summary(failures: list[PipelineFailure]) -> str:
+    """失敗したパイプライン一覧を終了メッセージ向けに整形する。"""
+
+    joined = ", ".join(f"{failure.pipeline_name}:{failure.session}" for failure in failures)
+    return f"一部の更新に失敗しました。ログを確認してください: {joined}"
 
 
 def remove_file_if_exists(path: Path) -> None:
@@ -461,53 +512,74 @@ def main() -> None:
         args.parse_only,
         args.cleanup_tmp,
     )
+    failures: list[PipelineFailure] = []
     for session in sessions:
-        run_pipeline_with_error_logging(
+        failure = run_pipeline_with_error_logging(
             pipeline_name="gian",
             runner=run_gian_pipeline,
             session=session,
             skip_existing=skip_existing,
             parse_only=args.parse_only,
         )
-        run_pipeline_with_error_logging(
+        if failure is not None:
+            failures.append(failure)
+        failure = run_pipeline_with_error_logging(
             pipeline_name="kaigiroku",
             runner=run_kaigiroku_pipeline,
             session=session,
             skip_existing=skip_existing,
             parse_only=args.parse_only,
         )
-        run_pipeline_with_error_logging(
+        if failure is not None:
+            failures.append(failure)
+        failure = run_pipeline_with_error_logging(
             pipeline_name="shugiin_seigan",
             runner=run_shugiin_seigan_pipeline,
             session=session,
             skip_existing=skip_existing,
             parse_only=args.parse_only,
         )
-        run_pipeline_with_error_logging(
+        if failure is not None:
+            failures.append(failure)
+        failure = run_pipeline_with_error_logging(
             pipeline_name="sangiin_seigan",
             runner=run_sangiin_seigan_pipeline,
             session=session,
             skip_existing=skip_existing,
             parse_only=args.parse_only,
         )
-        run_pipeline_with_error_logging(
+        if failure is not None:
+            failures.append(failure)
+        failure = run_pipeline_with_error_logging(
             pipeline_name="shugiin_shitsumon",
             runner=run_shugiin_shitsumon_pipeline,
             session=session,
             skip_existing=skip_existing,
             parse_only=args.parse_only,
         )
-        run_pipeline_with_error_logging(
+        if failure is not None:
+            failures.append(failure)
+        failure = run_pipeline_with_error_logging(
             pipeline_name="sangiin_shitsumon",
             runner=run_sangiin_shitsumon_pipeline,
             session=session,
             skip_existing=skip_existing,
             parse_only=args.parse_only,
         )
+        if failure is not None:
+            failures.append(failure)
 
-    run_distribution_builders(sessions, skip_existing=skip_existing)
+    distribution_skip_existing = skip_existing and not args.parse_only
+    run_distribution_builders(
+        sessions,
+        skip_existing=distribution_skip_existing,
+        blocked_targets=build_blocked_targets(failures),
+        skip_people_index=bool(failures),
+    )
     if args.cleanup_tmp:
         cleanup_tmp_artifacts(sessions)
+    if failures:
+        raise SystemExit(format_failure_summary(failures))
 
 
 if __name__ == "__main__":
