@@ -37,22 +37,39 @@
         <h3>{{ group.committee_name }}</h3>
         <span class="name-pill static">{{ group.count }}件</span>
       </div>
-      <ul class="item-list compact">
-        {% for item in group["items"] %}
-        <li class="petition-list-item">
-          <div class="petition-header">
-            <strong><a href="{{ url_for('seigan_detail', house=house, petition_id=item.petition_id) }}">{{ item.title }}</a></strong>
-            <span class="subtle">請願 {{ item.petition_number }}</span>
-          </div>
-          <div class="subtle">ID: {{ item.petition_id }} / 付託: {{ "あり" if item.is_referred else "なし" }}</div>
-        </li>
-        {% endfor %}
-      </ul>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>題名</th>
+              <th>請願番号</th>
+              <th>petition_id</th>
+              <th>付託</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in group["items"] %}
+            <tr>
+              <td class="cell-wide"><a href="{{ url_for('seigan_detail', house=house, petition_id=item.petition_id) }}">{{ item.title }}</a></td>
+              <td>{{ item.petition_number }}</td>
+              <td>{{ item.petition_id }}</td>
+              <td>{{ "あり" if item.is_referred else "なし" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     {% else %}
-    <ul class="item-list compact">
-      <li>対象データがありません。</li>
-    </ul>
+    <div class="table-wrap">
+      <table class="data-table">
+        <tbody>
+          <tr>
+            <td class="table-empty">対象データがありません。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     {% endfor %}
   </section>
 

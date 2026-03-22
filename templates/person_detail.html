@@ -36,19 +36,29 @@
     {% for group in gian_groups %}
     <section class="session-group">
       <h3>第{{ group["session_number"] }}回</h3>
-      <ul class="item-list compact">
-        {% for item in group["items"] %}
-        <li>
-          <a class="title-link" href="{{ url_for('gian_detail', bill_id=item.bill_id) }}">{{ item.title }}</a>
-          <div class="subtle">{{ item.bill_id }} / {{ item.role|role_label }}</div>
-        </li>
-        {% endfor %}
-      </ul>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>題名</th>
+              <th>bill_id</th>
+              <th>関係</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in group["items"] %}
+            <tr>
+              <td class="cell-wide"><a class="title-link" href="{{ url_for('gian_detail', bill_id=item.bill_id) }}">{{ item.title }}</a></td>
+              <td>{{ item.bill_id }}</td>
+              <td>{{ item.role|role_label }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     {% else %}
-    <ul class="item-list compact">
-      <li>関連なし</li>
-    </ul>
+    <p class="subtle">関連なし</p>
     {% endfor %}
   </section>
 
@@ -57,19 +67,31 @@
     {% for group in seigan_groups %}
     <section class="session-group">
       <h3>{% if group["session_number"] %}第{{ group["session_number"] }}回{% else %}回次不明{% endif %}</h3>
-      <ul class="item-list compact">
-        {% for item in group["items"] %}
-        <li>
-          <a href="{{ url_for('seigan_detail', house=item.house, petition_id=item.petition_id) }}">{{ item.title }}</a>
-          <div class="subtle">{{ item.petition_id }} / {{ item.role|role_label }} / {{ house_labels[item.house] }}</div>
-        </li>
-        {% endfor %}
-      </ul>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>題名</th>
+              <th>petition_id</th>
+              <th>院</th>
+              <th>関係</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in group["items"] %}
+            <tr>
+              <td class="cell-wide"><a href="{{ url_for('seigan_detail', house=item.house, petition_id=item.petition_id) }}">{{ item.title }}</a></td>
+              <td>{{ item.petition_id }}</td>
+              <td>{{ house_labels[item.house] }}</td>
+              <td>{{ item.role|role_label }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     {% else %}
-    <ul class="item-list compact">
-      <li>関連なし</li>
-    </ul>
+    <p class="subtle">関連なし</p>
     {% endfor %}
   </section>
 
@@ -78,19 +100,31 @@
     {% for group in shitsumon_groups %}
     <section class="session-group">
       <h3>{% if group["session_number"] %}第{{ group["session_number"] }}回{% else %}回次不明{% endif %}</h3>
-      <ul class="item-list compact">
-        {% for item in group["items"] %}
-        <li>
-          <a href="{{ url_for('shitsumon_detail', house=item.house, question_id=item.question_id) }}">{{ item.title }}</a>
-          <div class="subtle">{{ item.question_id }} / {{ item.role|role_label }} / {{ house_labels[item.house] }}</div>
-        </li>
-        {% endfor %}
-      </ul>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>題名</th>
+              <th>question_id</th>
+              <th>院</th>
+              <th>関係</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in group["items"] %}
+            <tr>
+              <td class="cell-wide"><a href="{{ url_for('shitsumon_detail', house=item.house, question_id=item.question_id) }}">{{ item.title }}</a></td>
+              <td>{{ item.question_id }}</td>
+              <td>{{ house_labels[item.house] }}</td>
+              <td>{{ item.role|role_label }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     {% else %}
-    <ul class="item-list compact">
-      <li>関連なし</li>
-    </ul>
+    <p class="subtle">関連なし</p>
     {% endfor %}
   </section>
 
@@ -99,19 +133,31 @@
     {% for group in meeting_groups %}
     <section class="session-group">
       <h3>{% if group["session_number"] %}第{{ group["session_number"] }}回{% else %}回次不明{% endif %}</h3>
-      <ul class="item-list compact">
-        {% for item in group["items"] %}
-        <li>
-          <a href="{{ url_for('kaigiroku_detail', issue_id=item.issue_id) }}">{{ item.name_of_meeting }} {{ item.issue }}</a>
-          <div class="subtle">{{ item.date }} / {{ item.name_of_house }} / {{ item.role or "出席者" }}</div>
-        </li>
-        {% endfor %}
-      </ul>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>会議</th>
+              <th>開催日</th>
+              <th>院</th>
+              <th>役割</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in group["items"] %}
+            <tr>
+              <td class="cell-medium"><a href="{{ url_for('kaigiroku_detail', issue_id=item.issue_id) }}">{{ item.name_of_meeting }} {{ item.issue }}</a></td>
+              <td>{{ item.date }}</td>
+              <td>{{ item.name_of_house }}</td>
+              <td>{{ item.role or "出席者" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     {% else %}
-    <ul class="item-list compact">
-      <li>関連なし</li>
-    </ul>
+    <p class="subtle">関連なし</p>
     {% endfor %}
   </section>
 
@@ -120,22 +166,33 @@
     {% for group in speaking_meeting_groups %}
     <section class="session-group">
       <h3>{% if group["session_number"] %}第{{ group["session_number"] }}回{% else %}回次不明{% endif %}</h3>
-      <ul class="item-list compact">
-        {% for item in group["items"] %}
-        <li>
-          <a href="{{ url_for('kaigiroku_detail', issue_id=item.issue_id) }}">{{ item.name_of_meeting }} {{ item.issue }}</a>
-          <div class="subtle">{{ item.date }} / {{ item.name_of_house }} / 発言 {{ item.speech_count }}件</div>
-          {% if item.speaker_role or item.speaker_position %}
-          <div class="subtle">{{ item.speaker_role or item.speaker_position }}</div>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>会議</th>
+              <th>開催日</th>
+              <th>院</th>
+              <th>発言件数</th>
+              <th>役職</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in group["items"] %}
+            <tr>
+              <td class="cell-medium"><a href="{{ url_for('kaigiroku_detail', issue_id=item.issue_id) }}">{{ item.name_of_meeting }} {{ item.issue }}</a></td>
+              <td>{{ item.date }}</td>
+              <td>{{ item.name_of_house }}</td>
+              <td>{{ item.speech_count }}</td>
+              <td>{{ item.speaker_role or item.speaker_position or "-" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     {% else %}
-    <ul class="item-list compact">
-      <li>関連なし</li>
-    </ul>
+    <p class="subtle">関連なし</p>
     {% endfor %}
   </section>
 

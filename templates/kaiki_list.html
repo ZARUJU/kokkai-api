@@ -13,54 +13,72 @@
   </div>
 
   <section class="tab-panel is-active" id="kaiki-cards-panel">
-    <div class="grid two">
-      {% for item in session_cards %}
-      <article class="card card-inset">
-        <p class="eyebrow">第{{ item.number }}回</p>
-        <h2>{{ item.session_type or "会期種別不明" }}</h2>
-        <dl class="meta-list">
-          <div><dt>召集日</dt><dd>{{ item.convocation_date or "-" }}</dd></div>
-          <div><dt>閉会日</dt><dd>{{ item.closing_date or "-" }}</dd></div>
-          <div><dt>閉会注記</dt><dd>{{ item.closing_note or "-" }}</dd></div>
-          <div><dt>会議数</dt><dd>{{ item.kaigiroku_count if item.kaigiroku_count is not none else "-" }}</dd></div>
-          <div><dt>会期日数</dt><dd>{{ item.duration_days or "-" }}</dd></div>
-          <div><dt>当初日数</dt><dd>{{ item.initial_duration_days or "-" }}</dd></div>
-          <div><dt>延長日数</dt><dd>{{ item.extension_days or "-" }}</dd></div>
-        </dl>
-        <div class="link-cluster">
-          {% if item.links.kaigiroku %}
-          <a class="button-link" href="{{ url_for('kaigiroku_index', session=item.number) }}">会議録</a>
-          {% else %}
-          <span class="button-link is-disabled" aria-disabled="true">会議録</span>
-          {% endif %}
-          {% if item.links.gian %}
-          <a class="button-link" href="{{ url_for('gian_index', session=item.number) }}">議案一覧</a>
-          {% else %}
-          <span class="button-link is-disabled" aria-disabled="true">議案一覧</span>
-          {% endif %}
-          {% if item.links.seigan_shugiin %}
-          <a class="button-link" href="{{ url_for('seigan_index', house='shugiin', session=item.number) }}">衆院請願</a>
-          {% else %}
-          <span class="button-link is-disabled" aria-disabled="true">衆院請願</span>
-          {% endif %}
-          {% if item.links.seigan_sangiin %}
-          <a class="button-link" href="{{ url_for('seigan_index', house='sangiin', session=item.number) }}">参院請願</a>
-          {% else %}
-          <span class="button-link is-disabled" aria-disabled="true">参院請願</span>
-          {% endif %}
-          {% if item.links.shitsumon_shugiin %}
-          <a class="button-link" href="{{ url_for('shitsumon_index', house='shugiin', session=item.number) }}">衆院質問</a>
-          {% else %}
-          <span class="button-link is-disabled" aria-disabled="true">衆院質問</span>
-          {% endif %}
-          {% if item.links.shitsumon_sangiin %}
-          <a class="button-link" href="{{ url_for('shitsumon_index', house='sangiin', session=item.number) }}">参院質問</a>
-          {% else %}
-          <span class="button-link is-disabled" aria-disabled="true">参院質問</span>
-          {% endif %}
-        </div>
-      </article>
-      {% endfor %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>回次</th>
+            <th>種別</th>
+            <th>召集日</th>
+            <th>閉会日</th>
+            <th>閉会注記</th>
+            <th>会議数</th>
+            <th>会期日数</th>
+            <th>当初日数</th>
+            <th>延長日数</th>
+            <th>関連一覧</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in session_cards %}
+          <tr>
+            <td>第{{ item.number }}回</td>
+            <td>{{ item.session_type or "会期種別不明" }}</td>
+            <td>{{ item.convocation_date or "-" }}</td>
+            <td>{{ item.closing_date or "-" }}</td>
+            <td>{{ item.closing_note or "-" }}</td>
+            <td>{{ item.kaigiroku_count if item.kaigiroku_count is not none else "-" }}</td>
+            <td>{{ item.duration_days or "-" }}</td>
+            <td>{{ item.initial_duration_days or "-" }}</td>
+            <td>{{ item.extension_days or "-" }}</td>
+            <td class="cell-actions">
+              <div class="action-links">
+                {% if item.links.kaigiroku %}
+                <a class="button-link" href="{{ url_for('kaigiroku_index', session=item.number) }}">会議録</a>
+                {% else %}
+                <span class="button-link is-disabled" aria-disabled="true">会議録</span>
+                {% endif %}
+                {% if item.links.gian %}
+                <a class="button-link" href="{{ url_for('gian_index', session=item.number) }}">議案</a>
+                {% else %}
+                <span class="button-link is-disabled" aria-disabled="true">議案</span>
+                {% endif %}
+                {% if item.links.seigan_shugiin %}
+                <a class="button-link" href="{{ url_for('seigan_index', house='shugiin', session=item.number) }}">衆院請願</a>
+                {% else %}
+                <span class="button-link is-disabled" aria-disabled="true">衆院請願</span>
+                {% endif %}
+                {% if item.links.seigan_sangiin %}
+                <a class="button-link" href="{{ url_for('seigan_index', house='sangiin', session=item.number) }}">参院請願</a>
+                {% else %}
+                <span class="button-link is-disabled" aria-disabled="true">参院請願</span>
+                {% endif %}
+                {% if item.links.shitsumon_shugiin %}
+                <a class="button-link" href="{{ url_for('shitsumon_index', house='shugiin', session=item.number) }}">衆院質問</a>
+                {% else %}
+                <span class="button-link is-disabled" aria-disabled="true">衆院質問</span>
+                {% endif %}
+                {% if item.links.shitsumon_sangiin %}
+                <a class="button-link" href="{{ url_for('shitsumon_index', house='sangiin', session=item.number) }}">参院質問</a>
+                {% else %}
+                <span class="button-link is-disabled" aria-disabled="true">参院質問</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </section>
 

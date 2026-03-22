@@ -15,9 +15,7 @@
 body {
   margin: 0;
   color: var(--ink);
-  background:
-    radial-gradient(circle at top right, #f7d9a8, transparent 26%),
-    linear-gradient(180deg, #faf7f0 0%, var(--bg) 100%);
+  background: var(--bg);
   font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
   line-height: 1.6;
 }
@@ -46,8 +44,8 @@ pre {
   top: 0;
   z-index: 10;
   backdrop-filter: blur(12px);
-  background: rgba(250, 247, 240, 0.88);
-  border-bottom: 1px solid rgba(214, 211, 205, 0.8);
+  background: rgba(244, 239, 230, 0.96);
+  border-bottom: 1px solid var(--line);
 }
 
 .site-header .wrap,
@@ -126,8 +124,8 @@ h2 {
 .card {
   margin-bottom: 16px;
   padding: 20px;
-  background: rgba(255, 253, 248, 0.92);
-  border: 1px solid rgba(214, 211, 205, 0.9);
+  background: var(--paper);
+  border: 1px solid var(--line);
   border-radius: 18px;
   box-shadow: 0 10px 28px rgba(31, 41, 51, 0.05);
 }
@@ -421,7 +419,7 @@ h2 {
   padding: 0 12px;
   border: 1px solid rgba(15, 118, 110, 0.18);
   border-radius: 999px;
-  background: linear-gradient(180deg, #f3fbf9 0%, #e4f4f0 100%);
+  background: var(--accent-soft);
   color: #0f5f58;
   font-size: 0.9rem;
   font-weight: 600;
@@ -432,7 +430,8 @@ h2 {
 }
 
 .data-table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   min-width: 760px;
 }
@@ -443,6 +442,7 @@ h2 {
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
+  white-space: nowrap;
 }
 
 .data-table thead th {
@@ -472,6 +472,38 @@ h2 {
 
 .kaigiroku-table td:nth-child(3) {
   min-width: 260px;
+}
+
+.cell-wide {
+  min-width: 320px;
+}
+
+.cell-medium {
+  min-width: 220px;
+}
+
+.cell-actions {
+  min-width: 280px;
+}
+
+.action-links {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.action-links .button-link,
+.action-links .tab-link,
+.action-links a {
+  white-space: nowrap;
+}
+
+.inline-links {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .committee-section + .committee-section {

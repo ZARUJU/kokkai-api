@@ -26,30 +26,44 @@
   </div>
 
   <section class="tab-panel is-active" id="shitsumon-list-panel">
-    {% for group in submitter_groups %}
-    <section class="committee-section" id="{{ group.anchor_id }}">
-      <div class="section-heading">
-        <h3>{{ group.submitter_name }}</h3>
-        <span class="name-pill static">{{ group.count }}件</span>
-      </div>
-      <ul class="item-list">
-        {% for item in group["items"] %}
-        <li>
-          <a class="title-link" href="{{ url_for('shitsumon_detail', house=house, question_id=item.question_id) }}">{{ item.title }}</a>
-          <div class="subtle">番号: {{ item.question_number }} / ID: {{ item.question_id }}</div>
-          <div class="subtle">
-            {% if item.answer_html_url %}答弁あり{% else %}答弁情報なし{% endif %}
-            {% if item.detail_url %} / <a href="{{ item.detail_url }}" target="_blank" rel="noreferrer">元ページ</a>{% endif %}
-          </div>
-        </li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% else %}
-    <ul class="item-list">
-      <li>対象データがありません。</li>
-    </ul>
-    {% endfor %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>提出者</th>
+            <th>題名</th>
+            <th>番号</th>
+            <th>question_id</th>
+            <th>答弁</th>
+            <th>元ページ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for group in submitter_groups %}
+          {% for item in group["items"] %}
+          <tr id="{{ group.anchor_id if loop.first else '' }}">
+            <td>{{ group.submitter_name }}</td>
+            <td class="cell-wide"><a class="title-link" href="{{ url_for('shitsumon_detail', house=house, question_id=item.question_id) }}">{{ item.title }}</a></td>
+            <td>{{ item.question_number }}</td>
+            <td>{{ item.question_id }}</td>
+            <td>{% if item.answer_html_url %}あり{% else %}なし{% endif %}</td>
+            <td>
+              {% if item.detail_url %}
+              <a href="{{ item.detail_url }}" target="_blank" rel="noreferrer">元ページ</a>
+              {% else %}
+              -
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="6" class="table-empty">対象データがありません。</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <section class="tab-panel" id="shitsumon-json-panel" hidden>

@@ -25,25 +25,40 @@
 
   <section class="tab-panel is-active" id="meeting-agenda-panel">
     <h2>本日の案件</h2>
-    <ul class="item-list compact">
-      {% for item in meeting.agenda_items %}
-      <li>
-        <strong>{{ item.text }}</strong>
-        {% if item.item_type %}
-        <div class="subtle">種別: {{ item.item_type }}</div>
-        {% endif %}
-        {% if item.bill_id %}
-        <div class="subtle">bill_id: {{ item.bill_id }}</div>
-        <a href="{{ url_for('gian_detail', bill_id=item.bill_id) }}">議案を見る</a>
-        {% elif item.petition_id %}
-        <div class="subtle">petition_id: {{ item.petition_id }}</div>
-        <a href="{{ url_for('seigan_detail', house='shugiin' if item.petition_id.startswith('shu-') else 'sangiin', petition_id=item.petition_id) }}">請願を見る</a>
-        {% endif %}
-      </li>
-      {% else %}
-      <li>本日の案件はありません。</li>
-      {% endfor %}
-    </ul>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>案件</th>
+            <th>種別</th>
+            <th>ID</th>
+            <th>関連</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in meeting.agenda_items %}
+          <tr>
+            <td class="cell-wide">{{ item.text }}</td>
+            <td>{{ item.item_type or "-" }}</td>
+            <td>{{ item.bill_id or item.petition_id or "-" }}</td>
+            <td>
+              {% if item.bill_id %}
+              <a href="{{ url_for('gian_detail', bill_id=item.bill_id) }}">議案を見る</a>
+              {% elif item.petition_id %}
+              <a href="{{ url_for('seigan_detail', house='shugiin' if item.petition_id.startswith('shu-') else 'sangiin', petition_id=item.petition_id) }}">請願を見る</a>
+              {% else %}
+              -
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="table-empty">本日の案件はありません。</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <section class="tab-panel" id="meeting-attendance-panel" hidden>
@@ -55,27 +70,36 @@
         <h3>{{ group["section"] }}</h3>
         <span class="name-pill static">{{ group["count"] }}名</span>
       </div>
-      <ul class="item-list compact">
-        {% for item in group["items"] %}
-        <li>
-          <strong>{{ item["role"] }}</strong>
-          {% if item["title"] %}
-          <div class="subtle">{{ item["title"] }}</div>
-          {% endif %}
-          <div>
-            {% for name in item["names"] %}
-            <a href="{{ url_for('person_detail', person_key=name|person_key) }}">{{ name }}</a>{% if not loop.last %}、{% endif %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>役割</th>
+              <th>肩書</th>
+              <th>氏名</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in group["items"] %}
+            <tr>
+              <td>{{ item["role"] }}</td>
+              <td>{{ item["title"] or "-" }}</td>
+              <td>
+                <span class="inline-links">
+                  {% for name in item["names"] %}
+                  <a href="{{ url_for('person_detail', person_key=name|person_key) }}">{{ name }}</a>{% if not loop.last %}<span>、</span>{% endif %}
+                  {% endfor %}
+                </span>
+              </td>
+            </tr>
             {% endfor %}
-          </div>
-        </li>
-        {% endfor %}
-      </ul>
+          </tbody>
+        </table>
+      </div>
     </section>
     {% endfor %}
     {% else %}
-    <ul class="item-list compact">
-      <li>出席者情報はありません。</li>
-    </ul>
+    <p class="subtle">出席者情報はありません。</p>
     {% endif %}
   </section>
 

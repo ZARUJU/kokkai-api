@@ -27,19 +27,39 @@
         <h3>{{ group["category"] }}</h3>
         <span class="name-pill static">{{ group["count"] }}件</span>
       </div>
-      <ul class="item-list">
-        {% for item in group["items"] %}
-        <li>
-          <a class="title-link" href="{{ url_for('gian_detail', bill_id=item.bill_id) }}">{{ item.title }}</a>
-          <div class="subtle">{{ item.bill_id }}{% if item.subcategory %} / {{ item.subcategory }}{% endif %} / 状態: {{ item.status or "不明" }}</div>
-        </li>
-        {% endfor %}
-      </ul>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>議案名</th>
+              <th>bill_id</th>
+              <th>補助分類</th>
+              <th>状態</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in group["items"] %}
+            <tr>
+              <td class="cell-wide"><a class="title-link" href="{{ url_for('gian_detail', bill_id=item.bill_id) }}">{{ item.title }}</a></td>
+              <td>{{ item.bill_id }}</td>
+              <td>{{ item.subcategory or "-" }}</td>
+              <td>{{ item.status or "不明" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
     {% else %}
-    <ul class="item-list">
-      <li>対象データがありません。</li>
-    </ul>
+    <div class="table-wrap">
+      <table class="data-table">
+        <tbody>
+          <tr>
+            <td class="table-empty">対象データがありません。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     {% endfor %}
   </section>
 
