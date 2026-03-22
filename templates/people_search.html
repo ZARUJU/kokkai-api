@@ -13,21 +13,23 @@
   {% if mode == "search" %}
   <p class="subtle">{{ results.total }} 件中 {{ results["items"]|length }} 件を表示</p>
   {% else %}
-  <p class="subtle">検索語が空のときは先頭の人物キーを表示します。</p>
+  <p class="subtle">検索語が空のときは、関連総件数が少ない順に人物を表示します。</p>
   {% endif %}
 </section>
 
 <section class="card">
-  {% if mode == "search" %}
   <div class="table-wrap">
     <table class="data-table">
       <thead>
         <tr>
           <th>氏名</th>
           <th>person_key</th>
+          <th>総件数</th>
           <th>議案</th>
           <th>請願</th>
           <th>質問</th>
+          <th>出席</th>
+          <th>発言</th>
         </tr>
       </thead>
       <tbody>
@@ -35,39 +37,20 @@
         <tr>
           <td><a href="{{ url_for('person_detail', person_key=item.person_key) }}">{{ item.canonical_name }}</a></td>
           <td>{{ item.person_key }}</td>
+          <td>{{ item.relation_counts.gian + item.relation_counts.seigan + item.relation_counts.shitsumon + item.relation_counts.meeting_attendance + item.relation_counts.meeting_speech }}</td>
           <td>{{ item.relation_counts.gian }}</td>
           <td>{{ item.relation_counts.seigan }}</td>
           <td>{{ item.relation_counts.shitsumon }}</td>
+          <td>{{ item.relation_counts.meeting_attendance }}</td>
+          <td>{{ item.relation_counts.meeting_speech }}</td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="5" class="table-empty">該当する人物は見つかりませんでした。</td>
+          <td colspan="8" class="table-empty">{% if mode == "search" %}該当する人物は見つかりませんでした。{% else %}対象データがありません。{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% else %}
-  <div class="table-wrap">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>person_key</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for person_key in results["items"] %}
-        <tr>
-          <td><a href="{{ url_for('person_detail', person_key=person_key) }}">{{ person_key }}</a></td>
-        </tr>
-        {% else %}
-        <tr>
-          <td class="table-empty">対象データがありません。</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
 </section>
 {% endblock %}

@@ -299,6 +299,24 @@ def list_available_person_keys() -> list[str]:
     return [item.person_key for item in load_people_index().items]
 
 
+def person_relation_total(item: DistributedPersonIndexItem) -> int:
+    """人物インデックス項目の総関連件数を返す。"""
+
+    counts = item.relation_counts
+    return counts.gian + counts.seigan + counts.shitsumon + counts.meeting_attendance + counts.meeting_speech
+
+
+def list_people_index_items(sort_by: str = "person_key") -> list[DistributedPersonIndexItem]:
+    """人物インデックス項目一覧を指定順で返す。"""
+
+    items = list(load_people_index().items)
+    if sort_by == "relation_total_asc":
+        items.sort(key=lambda item: (person_relation_total(item), item.person_key))
+        return items
+    items.sort(key=lambda item: item.person_key)
+    return items
+
+
 def find_person_index_item(person_key: str) -> DistributedPersonIndexItem:
     """人物キーに一致する人物インデックス項目を返す。"""
 
@@ -578,6 +596,23 @@ def read_people_search(
     """人物キーと表記ゆれに対して部分一致検索する。"""
 
     items = search_people(q)
+    return ApiPeopleSearchResponse(
+        total=len(items),
+        offset=offset,
+        limit=limit,
+        items=items[offset : offset + limit],
+    )
+
+
+@router.get("/people/index-items", response_model=ApiPeopleSearchResponse)
+def read_people_index_items(
+    limit: int = Query(100, ge=1, le=1000, description="返す人物件数"),
+    offset: int = Query(0, ge=0, description="返却開始位置"),
+    sort: str = Query("relation_total_asc", pattern="^(person_key|relation_total_asc)$", description="並び順"),
+) -> ApiPeopleSearchResponse:
+    """人物インデックス項目一覧を返す。"""
+
+    items = list_people_index_items(sort_by=sort)
     return ApiPeopleSearchResponse(
         total=len(items),
         offset=offset,

@@ -323,7 +323,10 @@ def people_index():
                 results=results,
             )
 
-        people = api_get("/v1/people", params={"limit": 30, "offset": 0})
+        people = api_get(
+            "/v1/people/index-items",
+            params={"limit": 100, "offset": 0, "sort": "relation_total_asc"},
+        )
     except ApiRequestError as exc:
         return render_api_error(exc)
 

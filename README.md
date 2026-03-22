@@ -53,7 +53,7 @@ uv sync
 
 ## 一括実行 CLI
 
-回次をまとめて処理する入口として `cli.py` と `scripts/update-kokkai-data` を用意しています。
+回次をまとめて処理する入口として `cli.py` と `uv run kokkai-update` を用意しています。
 
 - 引数なし
   会期一覧を更新した上で、最新2回分の会議録・議案・請願・質問主意書を強制更新しながら取得・整形・`data/` 生成まで実行
@@ -84,12 +84,12 @@ uv sync
 実行例:
 
 ```bash
-./scripts/update-kokkai-data
-./scripts/update-kokkai-data 220 221
-./scripts/update-kokkai-data --all
-./scripts/update-kokkai-data --latest-count 1 --cleanup-tmp
-./scripts/update-kokkai-data 220 221 --force --cleanup-tmp
-./scripts/update-kokkai-data 217 --parse-only
+uv run kokkai-update
+uv run kokkai-update 220 221
+uv run kokkai-update --all
+uv run kokkai-update --latest-count 1 --cleanup-tmp
+uv run kokkai-update 220 221 --force --cleanup-tmp
+uv run kokkai-update 217 --parse-only
 ```
 
 ## パイプライン
